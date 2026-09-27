@@ -23,7 +23,7 @@ templates = Jinja2Templates(directory=settings.TEMPLATES)
 templates.env.filters["baht"] = baht
 templates.env.globals.update(
     PLATFORMS=[(p.value, name) for p, name in ((Platform.SHOPEE, "Shopee"), (Platform.TIKTOK, "TikTok"), (Platform.FACEBOOK, "Facebook"))],
-    KINDS=[(ReportKind.INCOME.value, "รายงานรายได้ (เงินที่ปล่อยแล้ว)"), (ReportKind.ORDERS.value, "รายงานคำสั่งซื้อ (รายการสินค้า)")],
+    KINDS=[(ReportKind.INCOME.value, "รายงานรายรับ (โอนเงินสำเร็จ)"), (ReportKind.ORDERS.value, "รายงานคำสั่งซื้อ (ทั้งหมด)")],
     EXPENSE_KINDS=[(ExpenseKind.ADS.value, "ค่าแอด"), (ExpenseKind.STAFF.value, "ค่าพนักงาน"), (ExpenseKind.TAX.value, "ภาษี"), (ExpenseKind.OTHER.value, "อื่น ๆ")],
     SHARED=SHARED,
 )

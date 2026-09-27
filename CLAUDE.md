@@ -47,6 +47,12 @@ Domain glossary: @CONTEXT.md · ADRs: docs/adr/
   latest cost. Why: cost changes must not rewrite last month's profit.
 - Shared expenses (staff, tax, misc without a platform) are allocated to platforms and orders by their share
   of net received in the period. The rule lives in ONE pure function (`domain/allocation.py`) — see ADR-0002.
+- COGS is keyed by ProductKey (SKU, or "ชื่อสินค้า | ชื่อตัวเลือก" when the shop sets no SKU — ADR-0003). Never key by
+  product name alone: two variants of one product have different costs.
+- Platform status words ("ยกเลิกแล้ว", "Cancelled") are translated to `OrderLine.cancelled` inside the platform parser,
+  driven by the yaml. Domain code never compares status strings — that is a platform concept.
+- Schema changes are additive only (ADD COLUMN with a default) and applied in `db.make_session_factory`. Never rename
+  or drop a column: the SQLite file on the Railway volume is the only copy of the data.
 - Anything the parser could not map or parse is reported to the user as an import problem; it is never
   silently skipped or defaulted to zero. Why: a zero fee looks like profit.
 

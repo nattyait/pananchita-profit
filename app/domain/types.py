@@ -42,7 +42,10 @@ class Settlement:
     service_fee: int = 0
     transaction_fee: int = 0
     affiliate_fee: int = 0
-    shipping_fee_diff: int = 0
+    tax_fee: int = 0
+    platform_fee: int = 0
+    ads_fee: int = 0  # ad-credit top-up deducted from the payout ("ค่าธรรมเนียมเติมเงินโฆษณาจากเงิน Escrow")
+    shipping_fee_diff: int = 0  # buyer-paid + platform subsidy + charged in seller's name (normally 0)
     other_adjustment: int = 0
 
     @property
@@ -55,12 +58,13 @@ class OrderLine:
     platform: Platform
     order_id: str
     line_no: int
-    sku: str
+    sku: str  # ProductKey: SKU, or "product | variant" when the shop sets no SKU (ADR-0003)
     quantity: int
     ordered_at: date
     product_name: str = ""
     status: str = ""
     payment_method: str = ""
+    cancelled: bool = False
 
 
 @dataclass(frozen=True)

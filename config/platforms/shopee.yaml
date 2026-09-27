@@ -1,29 +1,38 @@
 # ColumnMapping ของ Shopee — ข้อมูล ไม่ใช่โค้ด
-# แต่ละ field ระบุ "หัวคอลัมน์ที่ยอมรับได้" หลายชื่อ (ไทย/อังกฤษ) เพราะ Shopee เปลี่ยนชื่อได้
+# ชื่อคอลัมน์ล็อกจากไฟล์จริงเดือน ก.ย. 2026 (tests/fixtures_shopee_real.py) และเผื่อชื่อเก่า/อังกฤษไว้
 # การจับคู่: ตัดช่องว่าง/ตัวพิมพ์ แล้วเทียบตรงก่อน ถ้าไม่เจอค่อยเทียบแบบ "ขึ้นต้นด้วย"
 platform: shopee
 reports:
-  income:            # รายงานรายได้ (Income / "รายละเอียดรายได้")
+  income:            # รายงานรายรับของฉัน › โอนเงินสำเร็จ (ชีต "Income")
     required: [order_id, settled_at, net_received]
     headers:
-      order_id:        ["หมายเลขคำสั่งซื้อ", "Order ID", "Order SN", "เลขที่คำสั่งซื้อ"]
-      settled_at:      ["วันที่ปล่อยเงิน", "Payout Completed Date", "Released Date", "วันที่โอนเงิน", "วันที่ชำระเงินสำเร็จ"]
-      net_received:    ["ยอดเงินที่ปล่อยแล้ว", "ยอดที่ปล่อยแล้ว", "Total Released Amount", "Released Amount", "ยอดรวมที่ได้รับ", "รายได้สุทธิ"]
-      product_price:   ["ราคาสินค้าเดิม", "Original Product Price", "Product Price", "ราคาสินค้า"]
-      seller_discount: ["ส่วนลดสินค้าจากผู้ขาย", "Seller Product Discount", "ส่วนลดจากผู้ขาย"]
+      order_id:        ["หมายเลขคำสั่งซื้อ", "Order ID", "Order SN"]
+      ordered_at:      ["วันที่ทำการสั่งซื้อ", "Order Creation Date"]
+      settled_at:      ["วันที่โอนชำระเงินสำเร็จ", "วันที่ปล่อยเงิน", "Payout Completed Date", "Released Date"]
+      net_received:    ["จำนวนเงินทั้งหมดที่โอนแล้ว (฿)", "จำนวนเงินทั้งหมดที่โอนแล้ว", "ยอดเงินที่ปล่อยแล้ว", "Total Released Amount"]
+      product_price:   ["สินค้าราคาปกติ", "ราคาสินค้าเดิม", "Original Product Price"]
+      seller_discount: ["ส่วนลดสินค้าจากผู้ขาย", "Seller Product Discount"]
       commission_fee:  ["ค่าคอมมิชชั่น", "Commission Fee"]
-      service_fee:     ["ค่าธรรมเนียมบริการ", "Service Fee"]
-      transaction_fee: ["ค่าธรรมเนียมการทำธุรกรรม", "Transaction Fee", "ค่าธรรมเนียมธุรกรรม"]
-      affiliate_fee:   ["ค่าคอมมิชชั่น AMS", "AMS Commission Fee", "Affiliate Commission", "ค่าคอมมิชชั่นพันธมิตร", "ค่าคอมมิชชั่น Affiliate"]
-      shipping_fee_diff: ["ค่าจัดส่งที่ผู้ขายรับผิดชอบ", "Shipping Fee Paid by Seller", "ค่าส่งที่ผู้ขายจ่าย"]
-      other_adjustment: ["การปรับยอดอื่นๆ", "Other Adjustment", "ค่าปรับ"]
-  orders:            # รายงานคำสั่งซื้อ (Order export ที่มี 1 บรรทัดต่อสินค้า)
-    required: [order_id, ordered_at, sku, quantity]
+      service_fee:     ["ค่าบริการ", "ค่าธรรมเนียมบริการ", "Service Fee"]
+      transaction_fee: ["ค่าธุรกรรมการชำระเงิน", "ค่าธรรมเนียมการทำธุรกรรม", "Transaction Fee"]
+      affiliate_fee:   ["ค่าคอมมิชชั่น AMS", "AMS Commission Fee", "Affiliate Commission"]
+      tax_fee:         ["ภาษี", "Tax"]
+      platform_fee:    ["ค่าธรรมเนียมโครงสร้างพื้นฐานแพลตฟอร์ม", "Platform Infrastructure Fee"]
+      ads_fee:         ["ค่าธรรมเนียมเติมเงินโฆษณาจากเงิน Escrow", "Ads Credit Top-up Fee"]
+      shipping_buyer:  ["ค่าจัดส่งที่ชำระโดยผู้ซื้อ", "Shipping Fee Paid by Buyer"]
+      shipping_shopee: ["ค่าจัดส่งสินค้าที่ออกโดย Shopee", "Shopee Shipping Rebate"]
+      shipping_charged: ["ค่าจัดส่งที่ Shopee ชำระโดยชื่อของคุณ", "Shipping Fee Paid by Shopee on Your Behalf"]
+      other_adjustment: ["ค่าชดเชยที่หายไป", "การปรับยอดอื่นๆ", "Other Adjustment"]
+  orders:            # รายงานคำสั่งซื้อ (Order_all / Order_completed) 1 บรรทัดต่อสินค้า
+    required: [order_id, ordered_at, product_name, quantity]
     headers:
       order_id:       ["หมายเลขคำสั่งซื้อ", "Order ID", "Order SN"]
-      ordered_at:     ["วันที่ทำการสั่งซื้อ", "Order Creation Date", "วันที่สั่งซื้อ"]
-      status:         ["สถานะการสั่งซื้อ", "Order Status", "สถานะคำสั่งซื้อ"]
-      sku:            ["เลขอ้างอิง SKU (SKU Reference No.)", "SKU Reference No.", "เลขอ้างอิง SKU", "SKU"]
+      ordered_at:     ["วันที่ทำการสั่งซื้อ", "Order Creation Date"]
+      status:         ["สถานะการสั่งซื้อ", "Order Status"]
+      sku:            ["เลขอ้างอิง SKU (SKU Reference No.)", "SKU Reference No.", "เลขอ้างอิง SKU"]
       product_name:   ["ชื่อสินค้า", "Product Name"]
+      variant_name:   ["ชื่อตัวเลือก", "Variation Name"]
       quantity:       ["จำนวน", "Quantity"]
-      payment_method: ["ช่องทางการชำระเงิน", "Payment Method", "วิธีการชำระเงิน"]
+      payment_method: ["ช่องทางการชำระเงิน", "Payment Method"]
+    options:
+      cancelled_statuses: ["ยกเลิกแล้ว", "ยกเลิก", "Cancelled", "Canceled"]

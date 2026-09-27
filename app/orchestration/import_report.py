@@ -45,11 +45,13 @@ class ImportReport:
                                   uploaded_by=uploaded_by, uploaded_at=self.now)
         self.s.commit()
         try:
-            rows = report_reader.read_rows(data, filename)
+            sheets = report_reader.read_sheets(data, filename)
             spec = mapping.spec_from_yaml(mapping_loader.load_platform_mapping(self.config_root, platform.value), kind.value)
-            header_idx = mapping.find_header_row(rows, spec)
-            if header_idx is None:
+            hit = mapping.find_header(sheets, spec)
+            if hit is None:
                 raise ValueError("หาแถวหัวคอลัมน์ไม่เจอ — ตรวจว่าเลือกชนิดรายงานถูกและไฟล์มีคอลัมน์ " + ", ".join(spec.required))
+            sheet_idx, header_idx = hit
+            rows = sheets[sheet_idx]
             resolved = mapping.resolve(rows[header_idx], spec)
             if not resolved.ok:
                 raise ValueError("ไฟล์ขาดคอลัมน์ที่จำเป็น: " + ", ".join(resolved.missing_required))
@@ -59,7 +61,7 @@ class ImportReport:
                 result = parser.parse_income(records)
                 count = db.insert_settlements(self.s, upload.id, result.values)
             else:
-                result = parser.parse_orders(records)
+                result = parser.parse_orders(records, spec.options)
                 count = db.insert_order_lines(self.s, upload.id, result.values)
             problems = [f"แถว {p.row_no}: {p.message}" if p.row_no else p.message for p in result.problems]
             db.set_upload_status(self.s, upload.id, status="imported", row_count=count, problems=problems)
