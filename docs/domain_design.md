@@ -51,7 +51,7 @@ dashboard(from, to, platform?) ──► db.settlements_between(settled_at) + or
 - ไม่คิด VAT อัตโนมัติ — ภาษีกรอกเป็น Expense kind=`tax`
 - ไม่แยกค่าส่งที่ผู้ขายรับผิดชอบเป็น field พิเศษ — อยู่ใน net_received แล้วตามที่แพลตฟอร์มหัก
 
-## การเพิ่มแพลตฟอร์ม (TikTok, Facebook)
+## การเพิ่มแพลตฟอร์ม (Facebook)
 1. `config/platforms/tiktok.yaml` ระบุหัวคอลัมน์
 2. `app/domain/platforms/tiktok.py` มีฟังก์ชัน `parse_income(rows, mapping)` และ `parse_orders(rows, mapping)` คืน type เดียวกับ Shopee
 3. ลงทะเบียนใน `app/domain/platforms/__init__.py`
