@@ -9,6 +9,9 @@
 | **ReportUpload** | ไฟล์รายงาน 1 ไฟล์ที่พนักงานอัพโหลด พร้อม sha256, ชนิดรายงาน, ผู้อัพ, เวลาอัพ | append-only; ไฟล์ดิบเก็บก่อน parse เสมอ |
 | **ReportKind** | ชนิดรายงานจาก platform: `orders` (รายการสั่งซื้อ/สินค้า) หรือ `income` (รายงานรายได้/เงินที่ปล่อย) | Shopee: "รายการคำสั่งซื้อ" และ "รายงานรายได้" |
 | **OrderLine** | 1 บรรทัดสินค้าในออเดอร์: order_id, sku (=ProductKey), quantity, ordered_at, status, cancelled, payment_method | มาจาก ReportKind=orders; ใช้คิด COGS และ PendingOrder เท่านั้น |
+| **line_amount** | ราคาขายสุทธิต่อชิ้น × จำนวน ของ OrderLine ใช้เป็นน้ำหนักแบ่งเงินของออเดอร์ลงแต่ละบรรทัด | ADR-0004; ไม่ใช่รายได้ |
+| **OrderLineProfit** | ส่วนของ OrderProfit ที่ตกกับ 1 บรรทัดสินค้า: share ของ net_received − COGS − share ของ Expense | Σ ทุกบรรทัด = OrderProfit |
+| **ProductPnl** | สรุปต่อ ProductKey ในช่วงเวลา: ชิ้น, net_received, COGS, Expense, กำไร | มาจาก OrderLineProfit เท่านั้น |
 | **ProductKey** | ตัวตนของสินค้าที่ใช้ผูก SkuCost = SKU ถ้ามี, ถ้าว่าง = `"ชื่อสินค้า | ชื่อตัวเลือก"` | ADR-0003; เก็บในฟิลด์ `sku` |
 | **cancelled** | parser ของ platform แปลงสถานะออเดอร์เป็น true/false; domain ไม่รู้จักคำว่า "ยกเลิกแล้ว" | สถานะที่ถือว่ายกเลิกอยู่ใน ColumnMapping |
 | **Settlement** | เงินที่ platform **ปล่อยจริง** ให้ 1 ออเดอร์ 1 ครั้ง: net_received (สุทธิหลังหักทุกอย่าง), settled_at, และรายละเอียดค่าธรรมเนียม | **แหล่งรายได้แหล่งเดียวของระบบ** |
