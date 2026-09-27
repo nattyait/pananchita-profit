@@ -108,3 +108,36 @@ def test_shared_expense_with_no_settlements_stays_in_total_unallocated():
                      expenses=(Expense(ExpenseKind.STAFF, SHARED, 20000, SEP1),))
     assert r.total.expense_total == 20000 and r.total.net_profit == -20000
     assert r.by_platform == {}
+
+
+def test_order_money_is_split_across_lines_by_line_amount_and_sums_to_order_profit():
+    """ADR-0004: two products in one order, 3:1 by line_amount."""
+    settlements = (sett("M1", SEP1, 40000),)
+    lines = (
+        OrderLine(Platform.SHOPEE, "M1", 1, "PNC-001", 1, SEP1, line_amount=30000),
+        OrderLine(Platform.SHOPEE, "M1", 2, "PNC-002", 2, SEP1, line_amount=10000),
+    )
+    expenses = (Expense(ExpenseKind.ADS, "shopee", 4000, SEP1),)
+    r = build_report(period_start=SEP1, period_end=SEP30, settlements=settlements, order_lines=lines, sku_costs=COSTS, expenses=expenses)
+    o = r.orders[0]
+    a, b = o.lines
+    assert (a.sku, a.net_received, a.cogs, a.allocated_expense) == ("PNC-001", 30000, 5000, 3000)
+    assert (b.sku, b.net_received, b.cogs, b.allocated_expense) == ("PNC-002", 10000, 16000, 1000)
+    assert a.profit + b.profit == o.profit == 40000 - 21000 - 4000
+    assert r.by_product["PNC-002"].quantity == 2 and r.by_product["PNC-002"].net_profit == -7000
+    assert r.by_product["PNC-001"].net_profit == 22000
+    assert sum(p.net_profit for p in r.by_product.values()) == r.total.net_profit
+
+
+def test_split_falls_back_to_quantity_when_no_line_amounts():
+    settlements = (sett("M2", SEP1, 30000),)
+    lines = (OrderLine(Platform.SHOPEE, "M2", 1, "PNC-001", 2, SEP1), OrderLine(Platform.SHOPEE, "M2", 2, "PNC-002", 1, SEP1))
+    r = build_report(period_start=SEP1, period_end=SEP30, settlements=settlements, order_lines=lines, sku_costs=COSTS, expenses=())
+    assert [ln.net_received for ln in r.orders[0].lines] == [20000, 10000]
+
+
+def test_order_with_unknown_cost_has_no_line_profit_and_is_absent_from_products():
+    r = build_report(period_start=SEP1, period_end=SEP30, settlements=(sett("U", SEP1, 1000),),
+                     order_lines=(OrderLine(Platform.SHOPEE, "U", 1, "NOPE", 1, SEP1),), sku_costs=COSTS, expenses=())
+    assert r.orders[0].lines[0].cogs is None and r.orders[0].lines[0].profit is None
+    assert r.by_product == {}
