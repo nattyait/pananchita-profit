@@ -53,6 +53,8 @@ Domain glossary: @CONTEXT.md · ADRs: docs/adr/
   driven by the yaml. Domain code never compares status strings — that is a platform concept.
 - Schema changes are additive only (ADD COLUMN with a default) and applied in `db.make_session_factory`. Never rename
   or drop a column: the SQLite file on the Railway volume is the only copy of the data.
+- Per-product numbers come only from splitting an order's Settlement across its lines by `line_amount` (ADR-0004);
+  never from the order report's prices directly. Why: the order report is not money received.
 - Anything the parser could not map or parse is reported to the user as an import problem; it is never
   silently skipped or defaulted to zero. Why: a zero fee looks like profit.
 

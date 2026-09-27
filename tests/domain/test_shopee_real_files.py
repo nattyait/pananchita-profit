@@ -64,3 +64,9 @@ def test_name_only_when_no_variant():
     rec = {"order_id": "A", "ordered_at": "2026-09-01", "sku": "", "product_name": " ครีม ", "variant_name": None, "quantity": 2, "status": ""}
     result = shopee.parse_orders([(2, rec)], spec.options)
     assert result.values[0].sku == "ครีม"
+
+
+def test_orders_report_line_amount_from_unit_price():
+    spec, records = _parse("orders", [ORDERS_ALL])
+    lines = {ln.order_id: ln for ln in shopee.parse_orders(records, spec.options).values}
+    assert lines["260811381HQ4V2"].line_amount == 69900  # 699.00 × 1

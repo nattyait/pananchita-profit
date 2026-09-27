@@ -71,6 +71,7 @@ class OrderLineRow(Base):
     status: Mapped[str] = mapped_column(String(80), default="")
     payment_method: Mapped[str] = mapped_column(String(80), default="")
     cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
+    line_amount: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class SkuCostRow(Base):
@@ -113,7 +114,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     },
     "order_lines": {
         "product_name": "VARCHAR(255) NOT NULL DEFAULT ''", "status": "VARCHAR(80) NOT NULL DEFAULT ''",
-        "payment_method": "VARCHAR(80) NOT NULL DEFAULT ''", "cancelled": "BOOLEAN NOT NULL DEFAULT 0",
+        "payment_method": "VARCHAR(80) NOT NULL DEFAULT ''", "cancelled": "BOOLEAN NOT NULL DEFAULT 0", "line_amount": "INTEGER NOT NULL DEFAULT 0",
     },
 }
 
@@ -174,7 +175,7 @@ def insert_order_lines(s: Session, upload_id: int, lines: tuple[OrderLine, ...])
     for ln in lines:
         s.add(OrderLineRow(upload_id=upload_id, platform=ln.platform.value, order_id=ln.order_id, line_no=ln.line_no, sku=ln.sku,
                            product_name=ln.product_name, quantity=ln.quantity, ordered_at=ln.ordered_at, status=ln.status,
-                           payment_method=ln.payment_method, cancelled=ln.cancelled))
+                           payment_method=ln.payment_method, cancelled=ln.cancelled, line_amount=ln.line_amount))
     s.flush()
     return len(lines)
 
@@ -207,7 +208,7 @@ def all_order_lines(s: Session) -> tuple[OrderLine, ...]:
     m = OrderLineRow
     q = _latest_upload_per_key(s, m, [m.platform, m.order_id, m.line_no])
     return tuple(OrderLine(Platform(r.platform), r.order_id, r.line_no, r.sku, r.quantity, r.ordered_at, r.product_name, r.status, r.payment_method,
-                           bool(r.cancelled)) for r in s.scalars(q))
+                           bool(r.cancelled), r.line_amount) for r in s.scalars(q))
 
 
 # ---------- sku costs ----------

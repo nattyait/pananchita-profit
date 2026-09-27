@@ -65,6 +65,7 @@ class OrderLine:
     status: str = ""
     payment_method: str = ""
     cancelled: bool = False
+    line_amount: int = 0  # satang: unit price × quantity from the order report — a weight for splitting, never revenue (ADR-0004)
 
 
 @dataclass(frozen=True)

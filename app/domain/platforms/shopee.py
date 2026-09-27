@@ -122,12 +122,17 @@ def parse_orders(records: list[tuple[int, dict[str, Any]]], options: dict[str, A
             problems.append(ImportProblem("อ่านจำนวนไม่ได้", row_no, "quantity"))
             continue
         status = _text(rec.get("status"))
+        try:
+            unit_price = parse_money_or_zero(rec.get("unit_price")) if "unit_price" in rec else 0
+        except ValueError:
+            problems.append(ImportProblem("อ่านราคาขายไม่ได้", row_no, "unit_price"))
+            continue
         line_no_by_order[order_id] = line_no_by_order.get(order_id, 0) + 1
         lines.append(
             OrderLine(
                 PLATFORM, order_id, line_no_by_order[order_id], key, qty, ordered_at,
                 product_name=product_name, status=status, payment_method=_text(rec.get("payment_method")),
-                cancelled=status.lower() in cancelled_statuses,
+                cancelled=status.lower() in cancelled_statuses, line_amount=unit_price * qty,
             )
         )
     return ParseResult(tuple(lines), tuple(problems))
