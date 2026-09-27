@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}ประวัติอัพโหลด{% endblock %}
+{% block body %}
+<h1>ประวัติอัพโหลด</h1>
+{% if uploads %}
+<table class="grid">
+  <tr><th>เมื่อ</th><th>ผู้อัพโหลด</th><th>แพลตฟอร์ม</th><th>ชนิด</th><th>ไฟล์</th><th>ผล</th><th class="n">แถวที่นำเข้า</th><th>ปัญหา</th></tr>
+  {% for u in uploads %}
+  <tr class="{% if u.id == highlight %}highlight{% endif %}">
+    <td>{{ u.uploaded_at.strftime('%d/%m/%y %H:%M') }}</td><td>{{ u.uploaded_by }}</td><td>{{ u.platform }}</td>
+    <td>{{ dict(KINDS)[u.kind] }}</td><td><a href="/uploads/{{ u.id }}/download">{{ u.filename }}</a></td>
+    <td><span class="tag {{ u.status }}">{{ {'imported':'นำเข้าแล้ว','failed':'ล้มเหลว','received':'รับไฟล์แล้ว'}[u.status] }}</span></td>
+    <td class="n">{{ u.row_count }}</td>
+    <td>{% if u.error %}<span class="tag failed">{{ u.error }}</span>{% elif u.problem_count %}{{ u.problem_count }} แถวข้ามไป<ul class="problems">{% for p in u.problems.splitlines()[:5] %}<li>{{ p }}</li>{% endfor %}</ul>{% else %}—{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<div class="empty">ยังไม่เคยอัพโหลด — <a href="/upload">อัพโหลดรายงานแรก</a></div>{% endif %}
+{% endblock %}

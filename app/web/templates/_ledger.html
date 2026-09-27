@@ -1,0 +1,14 @@
+{# PeriodPnl as an accounting ledger. pnl: PeriodPnl, title: str #}
+<section class="ledger">
+  <h3>{{ title }} <small>{{ pnl.order_count }} ออเดอร์ที่ได้รับเงิน</small></h3>
+  <table>
+    <tr><td>ยอดรับจริงจากแพลตฟอร์ม</td><td class="n">{{ pnl.net_received|baht }}</td></tr>
+    <tr><td>หัก ต้นทุนสินค้า</td><td class="n">−{{ pnl.cogs|baht }}</td></tr>
+    <tr><td>กำไรขั้นต้น</td><td class="n">{{ pnl.contribution|baht }}</td></tr>
+    {% for value, label in EXPENSE_KINDS %}{% set amt = pnl.expenses.get(ExpenseKind(value), 0) %}{% if amt %}
+    <tr class="sub"><td>หัก {{ label }}</td><td class="n">−{{ amt|baht }}</td></tr>
+    {% endif %}{% endfor %}
+    <tr class="total {% if pnl.net_profit < 0 %}loss{% endif %}"><td>{% if pnl.net_profit < 0 %}ขาดทุนสุทธิ{% else %}กำไรสุทธิ{% endif %}</td><td class="n">{{ pnl.net_profit|baht }}</td></tr>
+  </table>
+  {% if pnl.cogs_incomplete_orders %}<p class="warn">{{ pnl.cogs_incomplete_orders }} ออเดอร์ยังคิดต้นทุนไม่ได้ — ตัวเลขต้นทุนจึงต่ำกว่าจริง</p>{% endif %}
+</section>

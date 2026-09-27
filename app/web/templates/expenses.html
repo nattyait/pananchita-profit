@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}ค่าใช้จ่าย{% endblock %}
+{% block body %}
+<h1>ค่าใช้จ่าย</h1>
+<p class="hint">ค่าแอดที่จ่ายให้แพลตฟอร์มไหน ให้เลือกแพลตฟอร์มนั้น ส่วนเงินเดือน ภาษี หรือค่าใช้จ่ายรวม เลือก "ส่วนกลาง" ระบบจะแบ่งให้แต่ละแพลตฟอร์มและแต่ละออเดอร์ตามสัดส่วนยอดรับจริงในช่วงที่ดู</p>
+<form class="inline" method="post" action="/expenses">
+  <label>ประเภท <select name="kind">{% for value, name in EXPENSE_KINDS %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select></label>
+  <label>ของแพลตฟอร์ม <select name="platform"><option value="{{ SHARED }}">ส่วนกลาง (แบ่งตามสัดส่วน)</option>{% for value, name in PLATFORMS %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select></label>
+  <label>จำนวนเงิน (บาท) <input name="amount" required inputmode="decimal"></label>
+  <label>วันที่จ่าย <input type="date" name="incurred_on" value="{{ today }}" required></label>
+  <label>หมายเหตุ <input name="note" placeholder="เช่น เงินเดือน ก.ย."></label>
+  <button type="submit">บันทึกค่าใช้จ่าย</button>
+</form>
+{% if rows %}
+<table class="grid"><tr><th>วันที่</th><th>ประเภท</th><th>แพลตฟอร์ม</th><th class="n">จำนวนเงิน</th><th>หมายเหตุ</th><th></th></tr>
+{% for r in rows %}<tr><td>{{ r.incurred_on.strftime('%d/%m/%Y') }}</td><td>{{ dict(EXPENSE_KINDS)[r.kind] }}</td><td>{{ 'ส่วนกลาง' if r.platform == SHARED else r.platform }}</td><td class="n">{{ r.amount|baht }}</td><td>{{ r.note }}</td>
+<td><form method="post" action="/expenses/{{ r.id }}/delete" onsubmit="return confirm('ลบรายการนี้?')"><button class="danger" type="submit">ลบ</button></form></td></tr>{% endfor %}</table>
+{% else %}<div class="empty">ยังไม่มีค่าใช้จ่าย — เพิ่มรายการแรกด้านบน</div>{% endif %}
+{% endblock %}

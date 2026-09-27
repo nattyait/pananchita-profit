@@ -1,0 +1,29 @@
+# ColumnMapping ของ Shopee — ข้อมูล ไม่ใช่โค้ด
+# แต่ละ field ระบุ "หัวคอลัมน์ที่ยอมรับได้" หลายชื่อ (ไทย/อังกฤษ) เพราะ Shopee เปลี่ยนชื่อได้
+# การจับคู่: ตัดช่องว่าง/ตัวพิมพ์ แล้วเทียบตรงก่อน ถ้าไม่เจอค่อยเทียบแบบ "ขึ้นต้นด้วย"
+platform: shopee
+reports:
+  income:            # รายงานรายได้ (Income / "รายละเอียดรายได้")
+    required: [order_id, settled_at, net_received]
+    headers:
+      order_id:        ["หมายเลขคำสั่งซื้อ", "Order ID", "Order SN", "เลขที่คำสั่งซื้อ"]
+      settled_at:      ["วันที่ปล่อยเงิน", "Payout Completed Date", "Released Date", "วันที่โอนเงิน", "วันที่ชำระเงินสำเร็จ"]
+      net_received:    ["ยอดเงินที่ปล่อยแล้ว", "ยอดที่ปล่อยแล้ว", "Total Released Amount", "Released Amount", "ยอดรวมที่ได้รับ", "รายได้สุทธิ"]
+      product_price:   ["ราคาสินค้าเดิม", "Original Product Price", "Product Price", "ราคาสินค้า"]
+      seller_discount: ["ส่วนลดสินค้าจากผู้ขาย", "Seller Product Discount", "ส่วนลดจากผู้ขาย"]
+      commission_fee:  ["ค่าคอมมิชชั่น", "Commission Fee"]
+      service_fee:     ["ค่าธรรมเนียมบริการ", "Service Fee"]
+      transaction_fee: ["ค่าธรรมเนียมการทำธุรกรรม", "Transaction Fee", "ค่าธรรมเนียมธุรกรรม"]
+      affiliate_fee:   ["ค่าคอมมิชชั่น AMS", "AMS Commission Fee", "Affiliate Commission", "ค่าคอมมิชชั่นพันธมิตร", "ค่าคอมมิชชั่น Affiliate"]
+      shipping_fee_diff: ["ค่าจัดส่งที่ผู้ขายรับผิดชอบ", "Shipping Fee Paid by Seller", "ค่าส่งที่ผู้ขายจ่าย"]
+      other_adjustment: ["การปรับยอดอื่นๆ", "Other Adjustment", "ค่าปรับ"]
+  orders:            # รายงานคำสั่งซื้อ (Order export ที่มี 1 บรรทัดต่อสินค้า)
+    required: [order_id, ordered_at, sku, quantity]
+    headers:
+      order_id:       ["หมายเลขคำสั่งซื้อ", "Order ID", "Order SN"]
+      ordered_at:     ["วันที่ทำการสั่งซื้อ", "Order Creation Date", "วันที่สั่งซื้อ"]
+      status:         ["สถานะการสั่งซื้อ", "Order Status", "สถานะคำสั่งซื้อ"]
+      sku:            ["เลขอ้างอิง SKU (SKU Reference No.)", "SKU Reference No.", "เลขอ้างอิง SKU", "SKU"]
+      product_name:   ["ชื่อสินค้า", "Product Name"]
+      quantity:       ["จำนวน", "Quantity"]
+      payment_method: ["ช่องทางการชำระเงิน", "Payment Method", "วิธีการชำระเงิน"]

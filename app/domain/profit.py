@@ -1,0 +1,205 @@
+"""Profit engine (pure). Builds ProfitReport from Settlement, OrderLine, SkuCost, Expense.
+
+Trust Invariant: revenue comes ONLY from Settlement.net_received. OrderLine is used for COGS only.
+This module never branches on a platform name.
+"""
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import date
+
+from app.domain.allocation import split_proportionally
+from app.domain.dates import in_period
+from app.domain.types import SHARED, Expense, ExpenseKind, ImportProblem, OrderLine, Platform, Settlement, SkuCost
+
+
+@dataclass(frozen=True)
+class OrderProfit:
+    platform: Platform
+    order_id: str
+    settled_at: date
+    ordered_at: date | None
+    net_received: int
+    cogs: int | None  # None when any SKU cost is unknown → problem, not zero
+    allocated_expense: int
+    fee_total: int
+    quantity: int
+
+    @property
+    def contribution(self) -> int | None:
+        return None if self.cogs is None else self.net_received - self.cogs
+
+    @property
+    def profit(self) -> int | None:
+        c = self.contribution
+        return None if c is None else c - self.allocated_expense
+
+
+@dataclass(frozen=True)
+class PendingOrder:
+    platform: Platform
+    order_id: str
+    ordered_at: date
+    status: str
+    payment_method: str
+    quantity: int
+
+
+@dataclass(frozen=True)
+class PeriodPnl:
+    platform: str  # Platform value or "all"
+    order_count: int
+    net_received: int
+    cogs: int
+    expenses: dict[ExpenseKind, int]
+    cogs_incomplete_orders: int = 0
+
+    @property
+    def expense_total(self) -> int:
+        return sum(self.expenses.values())
+
+    @property
+    def contribution(self) -> int:
+        return self.net_received - self.cogs
+
+    @property
+    def net_profit(self) -> int:
+        return self.contribution - self.expense_total
+
+
+@dataclass(frozen=True)
+class ProfitReport:
+    period_start: date
+    period_end: date
+    by_platform: dict[str, PeriodPnl]
+    total: PeriodPnl
+    orders: tuple[OrderProfit, ...]
+    pending: tuple[PendingOrder, ...]
+    problems: tuple[ImportProblem, ...] = field(default_factory=tuple)
+
+
+def effective_cost(costs: tuple[SkuCost, ...], sku: str, on: date) -> int | None:
+    candidates = [c for c in costs if c.sku == sku and c.effective_from <= on]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda c: c.effective_from).unit_cost
+
+
+def cogs_for(lines: tuple[OrderLine, ...], costs: tuple[SkuCost, ...]) -> tuple[int | None, tuple[ImportProblem, ...]]:
+    """Σ quantity × SkuCost effective on ordered_at. Any unknown SKU → (None, problems)."""
+    total = 0
+    problems: list[ImportProblem] = []
+    for line in lines:
+        unit = effective_cost(costs, line.sku, line.ordered_at)
+        if unit is None:
+            problems.append(ImportProblem(f"ไม่มีต้นทุนของ SKU {line.sku} ณ วันที่ {line.ordered_at:%d/%m/%Y}", None, "sku"))
+            continue
+        total += unit * line.quantity
+    return (None if problems else total, tuple(problems))
+
+
+def _fee_total(s: Settlement) -> int:
+    return s.commission_fee + s.service_fee + s.transaction_fee + s.affiliate_fee + s.shipping_fee_diff + s.other_adjustment
+
+
+def build_report(
+    *,
+    period_start: date,
+    period_end: date,
+    settlements: tuple[Settlement, ...],
+    order_lines: tuple[OrderLine, ...],
+    sku_costs: tuple[SkuCost, ...],
+    expenses: tuple[Expense, ...],
+    platform: Platform | None = None,
+) -> ProfitReport:
+    settled = [s for s in settlements if in_period(s.settled_at, period_start, period_end) and (platform is None or s.platform == platform)]
+    period_expenses = [e for e in expenses if in_period(e.incurred_on, period_start, period_end)]
+    lines_by_order: dict[tuple[str, str], list[OrderLine]] = defaultdict(list)
+    for ln in order_lines:
+        if platform is None or ln.platform == platform:
+            lines_by_order[(ln.platform.value, ln.order_id)].append(ln)
+
+    # --- per platform net_received (weights for allocation) ---
+    net_by_platform: dict[str, int] = defaultdict(int)
+    for s in settled:
+        net_by_platform[s.platform.value] += s.net_received
+    platforms_present = list(net_by_platform) or ([platform.value] if platform else [])
+
+    # --- expenses → platform (ADR-0002) ---
+    exp_by_platform: dict[str, dict[ExpenseKind, int]] = {p: defaultdict(int) for p in platforms_present}
+    unallocated_shared: dict[ExpenseKind, int] = defaultdict(int)
+    for e in period_expenses:
+        if e.platform == SHARED:
+            shares = split_proportionally(e.amount, dict(net_by_platform))
+            if not shares:
+                unallocated_shared[e.kind] += e.amount
+            for p, amt in shares.items():
+                exp_by_platform[p][e.kind] += amt
+        elif platform is None or e.platform == platform.value:
+            exp_by_platform.setdefault(e.platform, defaultdict(int))[e.kind] += e.amount
+
+    # --- expenses → orders within platform ---
+    alloc_by_order: dict[tuple[str, str], int] = {}
+    for p, kinds in exp_by_platform.items():
+        weights = {(s.platform.value, s.order_id): s.net_received for s in settled if s.platform.value == p}
+        alloc_by_order.update(split_proportionally(sum(kinds.values()), weights))
+
+    # --- OrderProfit ---
+    orders: list[OrderProfit] = []
+    problems: list[ImportProblem] = []
+    cogs_by_platform: dict[str, int] = defaultdict(int)
+    incomplete_by_platform: dict[str, int] = defaultdict(int)
+    count_by_platform: dict[str, int] = defaultdict(int)
+    for s in settled:
+        key = (s.platform.value, s.order_id)
+        lines = tuple(lines_by_order.get(key, ()))
+        if lines:
+            cogs, probs = cogs_for(lines, sku_costs)
+        else:
+            cogs, probs = None, (ImportProblem(f"ออเดอร์ {s.order_id} ยังไม่มีรายการสินค้า (อัพโหลดรายงานคำสั่งซื้อ)", None, "order_id"),)
+        problems.extend(probs)
+        count_by_platform[s.platform.value] += 1
+        if cogs is None:
+            incomplete_by_platform[s.platform.value] += 1
+        else:
+            cogs_by_platform[s.platform.value] += cogs
+        orders.append(
+            OrderProfit(
+                platform=s.platform, order_id=s.order_id, settled_at=s.settled_at,
+                ordered_at=min(ln.ordered_at for ln in lines) if lines else None,
+                net_received=s.net_received, cogs=cogs,
+                allocated_expense=alloc_by_order.get(key, 0), fee_total=_fee_total(s),
+                quantity=sum(ln.quantity for ln in lines),
+            )
+        )
+
+    # --- PendingOrder: order lines with no settlement at all (any date) ---
+    settled_keys = {(s.platform.value, s.order_id) for s in settlements}
+    pending: list[PendingOrder] = []
+    for key, lines in lines_by_order.items():
+        if key in settled_keys:
+            continue
+        first = lines[0]
+        pending.append(PendingOrder(first.platform, first.order_id, min(ln.ordered_at for ln in lines), first.status, first.payment_method, sum(ln.quantity for ln in lines)))
+
+    by_platform = {
+        p: PeriodPnl(p, count_by_platform[p], net_by_platform[p], cogs_by_platform[p], dict(exp_by_platform.get(p, {})), incomplete_by_platform[p])
+        for p in sorted(set(platforms_present) | set(exp_by_platform))
+    }
+    total_exp: dict[ExpenseKind, int] = defaultdict(int)
+    for kinds in exp_by_platform.values():
+        for k, v in kinds.items():
+            total_exp[k] += v
+    for k, v in unallocated_shared.items():
+        total_exp[k] += v
+    total = PeriodPnl(
+        "all", sum(count_by_platform.values()), sum(net_by_platform.values()), sum(cogs_by_platform.values()),
+        dict(total_exp), sum(incomplete_by_platform.values()),
+    )
+    return ProfitReport(
+        period_start, period_end, by_platform, total,
+        tuple(sorted(orders, key=lambda o: (o.settled_at, o.order_id), reverse=True)),
+        tuple(sorted(pending, key=lambda p: p.ordered_at, reverse=True)),
+        tuple(problems),
+    )

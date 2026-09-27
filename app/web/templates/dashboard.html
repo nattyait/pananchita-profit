@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>กำไรจริง {{ start.strftime('%d/%m/%Y') }} – {{ end.strftime('%d/%m/%Y') }}</h1>
+<p class="hint">นับเฉพาะเงินที่แพลตฟอร์มปล่อยให้แล้วในช่วงนี้ (ตามวันที่ปล่อยเงิน) หักต้นทุนสินค้าและค่าใช้จ่ายที่ลงไว้ ออเดอร์ที่ยังไม่ได้เงิน เช่น เก็บเงินปลายทาง อยู่ในรายการ "รอรับเงิน" ด้านล่าง</p>
+<form class="filters" method="get" action="/">
+  <label>ตั้งแต่ <input type="date" name="start" value="{{ start }}"></label>
+  <label>ถึง <input type="date" name="end" value="{{ end }}"></label>
+  <label>แพลตฟอร์ม
+    <select name="platform">
+      <option value="all" {% if platform == 'all' %}selected{% endif %}>ทุกแพลตฟอร์มรวมกัน</option>
+      {% for value, name in PLATFORMS %}<option value="{{ value }}" {% if platform == value %}selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit">ดูกำไร</button>
+</form>
+
+{% if report.total.order_count == 0 and report.total.expense_total == 0 %}
+<div class="empty">ยังไม่มีข้อมูลในช่วงนี้ — <a href="/upload">อัพโหลดรายงานรายได้จากแพลตฟอร์ม</a> เพื่อเริ่มต้น</div>
+{% else %}
+<div class="ledgers">
+  {% with pnl=report.total, title=('รวมทุกแพลตฟอร์ม' if platform == 'all' else dict(PLATFORMS)[platform]) %}{% include "_ledger.html" %}{% endwith %}
+  {% if platform == 'all' %}{% for key, pnl in report.by_platform.items() %}
+    {% with title=dict(PLATFORMS).get(key, key) %}{% include "_ledger.html" %}{% endwith %}
+  {% endfor %}{% endif %}
+</div>
+{% endif %}
+
+{% if report.problems %}
+<div class="notice">
+  <strong>{{ report.problems|length }} รายการที่คิดต้นทุนไม่ได้</strong> — ออเดอร์เหล่านี้แสดงยอดรับจริงแต่ไม่แสดงกำไร จนกว่าจะ<a href="/sku-costs">ใส่ต้นทุน SKU</a> หรือ<a href="/upload">อัพโหลดรายงานคำสั่งซื้อ</a>
+  <ul class="problems">{% for p in report.problems[:8] %}<li>{{ p.message }}</li>{% endfor %}{% if report.problems|length > 8 %}<li>… และอีก {{ report.problems|length - 8 }} รายการ</li>{% endif %}</ul>
+</div>
+{% endif %}
+
+<h2>กำไรรายออเดอร์</h2>
+{% if report.orders %}
+<table class="grid">
+  <tr><th>วันที่ได้เงิน</th><th>แพลตฟอร์ม</th><th>เลขออเดอร์</th><th>สั่งเมื่อ</th><th class="n">ชิ้น</th><th class="n">ค่าธรรมเนียมรวม</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
+  {% for o in report.orders %}
+  <tr class="{% if o.profit is none %}{% elif o.profit < 0 %}loss{% else %}gain{% endif %}">
+    <td>{{ o.settled_at.strftime('%d/%m/%y') }}</td><td>{{ o.platform.value }}</td><td>{{ o.order_id }}</td>
+    <td>{{ o.ordered_at.strftime('%d/%m/%y') if o.ordered_at else '—' }}</td><td class="n">{{ o.quantity or '—' }}</td>
+    <td class="n">{{ o.fee_total|baht }}</td><td class="n">{{ o.net_received|baht }}</td>
+    <td class="n">{{ o.cogs|baht if o.cogs is not none else '?' }}</td><td class="n">{{ o.allocated_expense|baht }}</td>
+    <td class="n profit">{{ o.profit|baht if o.profit is not none else 'ไม่ทราบ' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="hint">ไม่มีออเดอร์ที่ได้รับเงินในช่วงนี้</p>{% endif %}
+
+<h2>รอรับเงิน <span class="tag wait">{{ report.pending|length }}</span></h2>
+<p class="hint">ออเดอร์ที่อยู่ในรายงานคำสั่งซื้อแต่แพลตฟอร์มยังไม่ปล่อยเงิน (ทุกช่วงเวลา) — จะย้ายมาเป็นกำไรเมื่ออัพโหลดรายงานรายได้ที่มีออเดอร์นี้</p>
+{% if report.pending %}
+<table class="grid">
+  <tr><th>สั่งเมื่อ</th><th>แพลตฟอร์ม</th><th>เลขออเดอร์</th><th>สถานะ</th><th>ชำระเงิน</th><th class="n">ชิ้น</th></tr>
+  {% for p in report.pending %}<tr><td>{{ p.ordered_at.strftime('%d/%m/%y') }}</td><td>{{ p.platform.value }}</td><td>{{ p.order_id }}</td><td>{{ p.status }}</td><td>{{ p.payment_method }}</td><td class="n">{{ p.quantity }}</td></tr>{% endfor %}
+</table>
+{% else %}<p class="hint">ไม่มีออเดอร์ค้างรับเงิน</p>{% endif %}
+{% endblock %}

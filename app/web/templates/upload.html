@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}อัพโหลดรายงาน{% endblock %}
+{% block body %}
+<h1>อัพโหลดรายงานจากแพลตฟอร์ม</h1>
+<p class="hint">ดาวน์โหลดจาก Seller Centre แล้วอัพโหลดไฟล์เดิมทั้งไฟล์ (.xlsx หรือ .csv) ระบบเก็บไฟล์ต้นฉบับไว้เสมอ อัพโหลดไฟล์เดิมซ้ำจะไม่ทำให้ตัวเลขซ้ำ</p>
+<form class="inline" method="post" action="/upload" enctype="multipart/form-data">
+  <label>แพลตฟอร์ม <select name="platform" required>{% for value, name in PLATFORMS %}<option value="{{ value }}" {% if value != 'shopee' %}disabled{% endif %}>{{ name }}{% if value != 'shopee' %} (เร็ว ๆ นี้){% endif %}</option>{% endfor %}</select></label>
+  <label>ชนิดรายงาน <select name="kind" required>{% for value, name in KINDS %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select></label>
+  <label>ชื่อผู้อัพโหลด <input name="uploaded_by" required placeholder="เช่น เก๋"></label>
+  <label>ไฟล์ <input type="file" name="file" accept=".xlsx,.csv" required></label>
+  <button type="submit">อัพโหลดและนำเข้า</button>
+</form>
+<h2>ต้องอัพโหลดอะไรบ้าง (Shopee)</h2>
+<table class="grid">
+  <tr><th>รายงาน</th><th>ใช้ทำอะไร</th><th>ที่ดาวน์โหลดใน Seller Centre</th></tr>
+  <tr><td>รายงานรายได้</td><td>ยอดรับจริงหลังหักค่าธรรมเนียม ค่าคอมมิชชั่น affiliate — เป็นรายได้แหล่งเดียวของระบบ</td><td>การเงิน › รายได้ของฉัน › ปล่อยแล้ว › ดาวน์โหลดรายงาน</td></tr>
+  <tr><td>รายงานคำสั่งซื้อ</td><td>SKU และจำนวนชิ้นในแต่ละออเดอร์ ใช้คิดต้นทุนสินค้า และรู้ว่าออเดอร์ไหนยังรอเงิน</td><td>คำสั่งซื้อ › คำสั่งซื้อของฉัน › ส่งออก</td></tr>
+</table>
+{% endblock %}
