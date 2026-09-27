@@ -53,6 +53,10 @@ Domain glossary: @CONTEXT.md · ADRs: docs/adr/
   driven by the yaml. Domain code never compares status strings — that is a platform concept.
 - Schema changes are additive only (ADD COLUMN with a default) and applied in `db.make_session_factory`. Never rename
   or drop a column: the SQLite file on the Railway volume is the only copy of the data.
+- A platform's income statement may contain money movements that are not orders. Only rows the yaml marks as
+  order types become Settlements; rows marked as charge types become Expenses with a `source_ref` (ADR-0005);
+  everything else is ignored and counted in the upload's problems. Why: TikTok deducts ads from the payout, and
+  silently dropping those rows would overstate profit by the full ad spend.
 - Per-product numbers come only from splitting an order's Settlement across its lines by `line_amount` (ADR-0004);
   never from the order report's prices directly. Why: the order report is not money received.
 - Anything the parser could not map or parse is reported to the user as an import problem; it is never
