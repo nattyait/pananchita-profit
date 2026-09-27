@@ -51,6 +51,16 @@ def test_pending_order_without_settlement_is_listed_not_zero():
     assert r.pending[0].order_id == "COD1" and r.pending[0].payment_method == "เก็บเงินปลายทาง"
 
 
+def test_cancelled_order_is_not_pending():
+    r = build_report(
+        period_start=SEP1, period_end=SEP30, settlements=(),
+        order_lines=(line("CANCEL1", "PNC-001", 1, date(2026, 9, 20), status="ยกเลิกแล้ว", cancelled=True),
+                     line("OK1", "PNC-001", 1, date(2026, 9, 21))),
+        sku_costs=COSTS, expenses=(),
+    )
+    assert [p.order_id for p in r.pending] == ["OK1"]
+
+
 def test_settlement_without_order_lines_is_a_problem_and_cogs_incomplete():
     r = build_report(period_start=SEP1, period_end=SEP30, settlements=(sett("X", SEP1, 1000),), order_lines=(), sku_costs=COSTS, expenses=())
     assert r.orders[0].cogs is None and r.orders[0].profit is None

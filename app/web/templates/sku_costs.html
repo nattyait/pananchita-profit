@@ -1,10 +1,10 @@
 {% extends "base.html" %}{% block title %}ต้นทุนสินค้า{% endblock %}
 {% block body %}
 <h1>ต้นทุนสินค้าต่อชิ้น</h1>
-<p class="hint">ต้นทุนมีผลตั้งแต่วันที่ระบุเป็นต้นไป ถ้าต้นทุนเปลี่ยน ให้เพิ่มแถวใหม่พร้อมวันที่ใหม่ — ออเดอร์เก่าจะยังใช้ต้นทุนเดิม ณ วันที่สั่ง</p>
+<p class="hint">รหัสสินค้าคือ SKU ใน Shopee ถ้าร้านไม่ได้ตั้ง SKU ระบบใช้ "ชื่อสินค้า | ชื่อตัวเลือก" แทน — เลือกจากรายการที่ระบบเจอในรายงานคำสั่งซื้อได้เลย ต้นทุนมีผลตั้งแต่วันที่ระบุเป็นต้นไป ถ้าต้นทุนเปลี่ยน ให้เพิ่มแถวใหม่พร้อมวันที่ใหม่ — ออเดอร์เก่าจะยังใช้ต้นทุนเดิม ณ วันที่สั่ง</p>
 {% if missing %}<div class="notice"><strong>{{ missing|length }} SKU ในรายงานคำสั่งซื้อยังไม่มีต้นทุน:</strong> {% for sku, name in missing %}<code>{{ sku }}</code>{% if name %} ({{ name }}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
 <form class="inline" method="post" action="/sku-costs">
-  <label>SKU <input name="sku" required list="skus"></label>
+  <label>รหัสสินค้า (SKU หรือ ชื่อสินค้า | ตัวเลือก) <input name="sku" required list="skus" style="min-width:26rem"></label>
   <datalist id="skus">{% for sku, name in missing %}<option value="{{ sku }}">{{ name }}</option>{% endfor %}</datalist>
   <label>ชื่อสินค้า <input name="product_name"></label>
   <label>ต้นทุน/ชิ้น (บาท) <input name="unit_cost" required inputmode="decimal" placeholder="เช่น 45.50"></label>
@@ -12,7 +12,7 @@
   <button type="submit">บันทึกต้นทุน</button>
 </form>
 {% if rows %}
-<table class="grid"><tr><th>SKU</th><th>ชื่อสินค้า</th><th class="n">ต้นทุน/ชิ้น</th><th>มีผลตั้งแต่</th></tr>
+<table class="grid"><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th class="n">ต้นทุน/ชิ้น</th><th>มีผลตั้งแต่</th></tr>
 {% for r in rows %}<tr><td>{{ r.sku }}</td><td>{{ r.product_name }}</td><td class="n">{{ r.unit_cost|baht }}</td><td>{{ r.effective_from.strftime('%d/%m/%Y') }}</td></tr>{% endfor %}</table>
 {% else %}<div class="empty">ยังไม่มีต้นทุน — เพิ่ม SKU แรกด้านบน</div>{% endif %}
 {% endblock %}

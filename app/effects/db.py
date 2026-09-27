@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from pathlib import Path
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, and_, create_engine, func, select
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, and_, create_engine, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.domain.types import Expense, ExpenseKind, OrderLine, Platform, Settlement, SkuCost
@@ -49,6 +49,9 @@ class SettlementRow(Base):
     service_fee: Mapped[int] = mapped_column(Integer, default=0)
     transaction_fee: Mapped[int] = mapped_column(Integer, default=0)
     affiliate_fee: Mapped[int] = mapped_column(Integer, default=0)
+    tax_fee: Mapped[int] = mapped_column(Integer, default=0)
+    platform_fee: Mapped[int] = mapped_column(Integer, default=0)
+    ads_fee: Mapped[int] = mapped_column(Integer, default=0)
     shipping_fee_diff: Mapped[int] = mapped_column(Integer, default=0)
     other_adjustment: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -61,19 +64,20 @@ class OrderLineRow(Base):
     platform: Mapped[str] = mapped_column(String(16), index=True)
     order_id: Mapped[str] = mapped_column(String(64), index=True)
     line_no: Mapped[int] = mapped_column(Integer)
-    sku: Mapped[str] = mapped_column(String(80))
+    sku: Mapped[str] = mapped_column(String(255))  # ProductKey
     product_name: Mapped[str] = mapped_column(String(255), default="")
     quantity: Mapped[int] = mapped_column(Integer)
     ordered_at: Mapped[date] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(80), default="")
     payment_method: Mapped[str] = mapped_column(String(80), default="")
+    cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class SkuCostRow(Base):
     __tablename__ = "sku_costs"
     __table_args__ = (UniqueConstraint("sku", "effective_from"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    sku: Mapped[str] = mapped_column(String(80), index=True)
+    sku: Mapped[str] = mapped_column(String(255), index=True)  # ProductKey
     product_name: Mapped[str] = mapped_column(String(255), default="")
     unit_cost: Mapped[int] = mapped_column(Integer)
     effective_from: Mapped[date] = mapped_column(Date)
@@ -94,7 +98,36 @@ def make_session_factory(url: str) -> sessionmaker[Session]:
         Path(url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
     engine = create_engine(url, connect_args={"check_same_thread": False} if url.startswith("sqlite") else {})
     Base.metadata.create_all(engine)
+    _add_missing_columns(engine)
     return sessionmaker(engine, expire_on_commit=False)
+
+
+# Additive columns only (ADR-0003): name → SQL type + default. create_all never alters existing tables.
+_ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "settlements": {
+        "product_price": "INTEGER NOT NULL DEFAULT 0", "seller_discount": "INTEGER NOT NULL DEFAULT 0",
+        "commission_fee": "INTEGER NOT NULL DEFAULT 0", "service_fee": "INTEGER NOT NULL DEFAULT 0",
+        "transaction_fee": "INTEGER NOT NULL DEFAULT 0", "affiliate_fee": "INTEGER NOT NULL DEFAULT 0",
+        "tax_fee": "INTEGER NOT NULL DEFAULT 0", "platform_fee": "INTEGER NOT NULL DEFAULT 0", "ads_fee": "INTEGER NOT NULL DEFAULT 0",
+        "shipping_fee_diff": "INTEGER NOT NULL DEFAULT 0", "other_adjustment": "INTEGER NOT NULL DEFAULT 0",
+    },
+    "order_lines": {
+        "product_name": "VARCHAR(255) NOT NULL DEFAULT ''", "status": "VARCHAR(80) NOT NULL DEFAULT ''",
+        "payment_method": "VARCHAR(80) NOT NULL DEFAULT ''", "cancelled": "BOOLEAN NOT NULL DEFAULT 0",
+    },
+}
+
+
+def _add_missing_columns(engine) -> None:
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table, cols in _ADDED_COLUMNS.items():
+            if not insp.has_table(table):
+                continue
+            existing = {c["name"] for c in insp.get_columns(table)}
+            for name, ddl in cols.items():
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
 
 # ---------- uploads ----------
@@ -131,7 +164,8 @@ def insert_settlements(s: Session, upload_id: int, settlements: tuple[Settlement
         s.add(SettlementRow(upload_id=upload_id, platform=st.platform.value, order_id=st.order_id, settled_at=st.settled_at,
                             net_received=st.net_received, product_price=st.product_price, seller_discount=st.seller_discount,
                             commission_fee=st.commission_fee, service_fee=st.service_fee, transaction_fee=st.transaction_fee,
-                            affiliate_fee=st.affiliate_fee, shipping_fee_diff=st.shipping_fee_diff, other_adjustment=st.other_adjustment))
+                            affiliate_fee=st.affiliate_fee, tax_fee=st.tax_fee, platform_fee=st.platform_fee, ads_fee=st.ads_fee,
+                            shipping_fee_diff=st.shipping_fee_diff, other_adjustment=st.other_adjustment))
     s.flush()
     return len(settlements)
 
@@ -140,7 +174,7 @@ def insert_order_lines(s: Session, upload_id: int, lines: tuple[OrderLine, ...])
     for ln in lines:
         s.add(OrderLineRow(upload_id=upload_id, platform=ln.platform.value, order_id=ln.order_id, line_no=ln.line_no, sku=ln.sku,
                            product_name=ln.product_name, quantity=ln.quantity, ordered_at=ln.ordered_at, status=ln.status,
-                           payment_method=ln.payment_method))
+                           payment_method=ln.payment_method, cancelled=ln.cancelled))
     s.flush()
     return len(lines)
 
@@ -157,7 +191,7 @@ def settlements_between(s: Session, start: date, end: date) -> tuple[Settlement,
     q = _latest_upload_per_key(s, m, [m.platform, m.order_id, m.settled_at]).where(m.settled_at.between(start, end))
     return tuple(
         Settlement(Platform(r.platform), r.order_id, r.settled_at, r.net_received, r.product_price, r.seller_discount, r.commission_fee,
-                   r.service_fee, r.transaction_fee, r.affiliate_fee, r.shipping_fee_diff, r.other_adjustment)
+                   r.service_fee, r.transaction_fee, r.affiliate_fee, r.tax_fee, r.platform_fee, r.ads_fee, r.shipping_fee_diff, r.other_adjustment)
         for r in s.scalars(q)
     )
 
@@ -172,8 +206,8 @@ def all_settlement_keys(s: Session) -> tuple[Settlement, ...]:
 def all_order_lines(s: Session) -> tuple[OrderLine, ...]:
     m = OrderLineRow
     q = _latest_upload_per_key(s, m, [m.platform, m.order_id, m.line_no])
-    return tuple(OrderLine(Platform(r.platform), r.order_id, r.line_no, r.sku, r.quantity, r.ordered_at, r.product_name, r.status, r.payment_method)
-                 for r in s.scalars(q))
+    return tuple(OrderLine(Platform(r.platform), r.order_id, r.line_no, r.sku, r.quantity, r.ordered_at, r.product_name, r.status, r.payment_method,
+                           bool(r.cancelled)) for r in s.scalars(q))
 
 
 # ---------- sku costs ----------

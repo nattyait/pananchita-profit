@@ -38,8 +38,8 @@ def test_parse_orders_assigns_line_no_per_order():
     result = shopee.parse_orders([
         (2, rec(order_id="A1", ordered_at="2026-09-10 10:00", sku="PNC-001", quantity="2", status="สำเร็จ", payment_method="เก็บเงินปลายทาง")),
         (3, rec(order_id="A1", ordered_at="2026-09-10 10:00", sku="PNC-002", quantity=1)),
-        (4, rec(order_id="A2", ordered_at="2026-09-11", sku="", quantity=1)),
+        (4, rec(order_id="A2", ordered_at="2026-09-11", sku="", product_name="", quantity=1)),
     ])
     assert [(ln.order_id, ln.line_no, ln.sku, ln.quantity) for ln in result.values] == [("A1", 1, "PNC-001", 2), ("A1", 2, "PNC-002", 1)]
     assert result.values[0].payment_method == "เก็บเงินปลายทาง"
-    assert result.problems[0].field == "sku"
+    assert result.problems[0].field == "product_name"

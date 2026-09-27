@@ -16,6 +16,7 @@ def normalize(header: object) -> str:
 class ReportSpec:
     required: tuple[str, ...]
     headers: dict[str, tuple[str, ...]]  # field → accepted header names
+    options: dict[str, Any] = field(default_factory=dict)  # platform-specific data for the parser (e.g. cancelled statuses)
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,7 @@ def spec_from_yaml(data: dict[str, Any], kind: str) -> ReportSpec:
     return ReportSpec(
         required=tuple(report["required"]),
         headers={f: tuple(names) for f, names in report["headers"].items()},
+        options=dict(report.get("options") or {}),
     )
 
 
@@ -43,6 +45,15 @@ def find_header_row(rows: list[list[Any]], spec: ReportSpec) -> int | None:
         cells = {normalize(c) for c in row}
         if all(any(normalize(n) in cells for n in spec.headers[f]) for f in spec.required):
             return idx
+    return None
+
+
+def find_header(sheets: list[list[list[Any]]], spec: ReportSpec) -> tuple[int, int] | None:
+    """(sheet index, row index) of the first sheet/row holding every required header. Shopee puts data on sheet 2."""
+    for sheet_idx, rows in enumerate(sheets):
+        row_idx = find_header_row(rows, spec)
+        if row_idx is not None:
+            return sheet_idx, row_idx
     return None
 
 

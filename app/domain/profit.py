@@ -100,7 +100,7 @@ def cogs_for(lines: tuple[OrderLine, ...], costs: tuple[SkuCost, ...]) -> tuple[
 
 
 def _fee_total(s: Settlement) -> int:
-    return s.commission_fee + s.service_fee + s.transaction_fee + s.affiliate_fee + s.shipping_fee_diff + s.other_adjustment
+    return s.commission_fee + s.service_fee + s.transaction_fee + s.affiliate_fee + s.tax_fee + s.platform_fee + s.ads_fee + s.shipping_fee_diff + s.other_adjustment
 
 
 def build_report(
@@ -174,11 +174,12 @@ def build_report(
             )
         )
 
-    # --- PendingOrder: order lines with no settlement at all (any date) ---
+    # --- PendingOrder: live (not cancelled) order lines with no settlement at all (any date) ---
     settled_keys = {(s.platform.value, s.order_id) for s in settlements}
     pending: list[PendingOrder] = []
-    for key, lines in lines_by_order.items():
-        if key in settled_keys:
+    for key, all_lines in lines_by_order.items():
+        lines = [ln for ln in all_lines if not ln.cancelled]
+        if key in settled_keys or not lines:
             continue
         first = lines[0]
         pending.append(PendingOrder(first.platform, first.order_id, min(ln.ordered_at for ln in lines), first.status, first.payment_method, sum(ln.quantity for ln in lines)))

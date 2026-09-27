@@ -41,5 +41,5 @@ def test_header_row_not_found():
 
 def test_prefix_fallback_for_sku_header_with_suffix():
     spec = spec_from_yaml(SHOPEE, "orders")
-    m = resolve(["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "เลขอ้างอิง SKU (SKU Reference No.) ", "จำนวน"], spec)
-    assert m.ok and m.columns["sku"] == 2
+    m = resolve(["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.) ", "จำนวน"], spec)
+    assert m.ok and m.columns["sku"] == 3
