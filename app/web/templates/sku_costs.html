@@ -12,7 +12,9 @@
   <button type="submit">บันทึกต้นทุน</button>
 </form>
 {% if rows %}
-<table class="grid"><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th class="n">ต้นทุน/ชิ้น</th><th>มีผลตั้งแต่</th></tr>
-{% for r in rows %}<tr><td>{{ r.sku }}</td><td>{{ r.product_name }}</td><td class="n">{{ r.unit_cost|baht }}</td><td>{{ r.effective_from.strftime('%d/%m/%Y') }}</td></tr>{% endfor %}</table>
+<table class="grid"><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th class="n">ต้นทุน/ชิ้น</th><th>มีผลตั้งแต่</th><th></th></tr>
+{% for r in rows %}<tr><td>{{ r.sku }}</td><td>{{ r.product_name }}</td><td class="n">{{ r.unit_cost|baht }}</td><td>{{ r.effective_from.strftime('%d/%m/%Y') }}</td>
+<td class="actions"><a href="/sku-costs/{{ r.id }}/edit">แก้ไข</a>
+<form method="post" action="/sku-costs/{{ r.id }}/delete" onsubmit="return confirm('ลบต้นทุนนี้? ออเดอร์ที่ใช้ต้นทุนนี้จะกลับไปเป็น ไม่ทราบต้นทุน')"><button class="danger" type="submit">ลบ</button></form></td></tr>{% endfor %}</table>
 {% else %}<div class="empty">ยังไม่มีต้นทุน — เพิ่ม SKU แรกด้านบน</div>{% endif %}
 {% endblock %}
