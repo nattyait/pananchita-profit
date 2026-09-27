@@ -40,5 +40,15 @@ def test_upload_then_dashboard_shows_profit(client):
     page = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     assert "285.00" in page and "100.00" in page and "150.00" in page  # net, cogs, profit 285-100-35
     assert "ขาดทุน" not in page
+    # edit the cost row: 50 → 60 changes profit 150 → 130; a duplicate (sku, date) is rejected with a message
+    client.post("/sku-costs", data={"sku": "PNC-001", "product_name": "ครีม", "unit_cost": "99", "effective_from": "2026-12-01"})  # future row, not effective yet
+    edit = client.get("/sku-costs/1/edit")
+    assert edit.status_code == 200 and 'value="50.00"' in edit.text
+    client.post("/sku-costs/1/edit", data={"sku": "PNC-001", "product_name": "ครีม 30g", "unit_cost": "60", "effective_from": "2026-01-01"})
+    assert "130.00" in client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
+    dup = client.post("/sku-costs/1/edit", data={"sku": "PNC-001", "product_name": "x", "unit_cost": "1", "effective_from": "2026-12-01"}, follow_redirects=True)
+    assert "อยู่แล้ว" in dup.text
+    client.post("/sku-costs/2/delete")
+    assert "99.00" not in client.get("/sku-costs").text
     assert client.get("/uploads").status_code == 200
     assert "A1" not in client.get("/", params={"start": "2026-10-01", "end": "2026-10-31", "platform": "shopee"}).text.split("รอรับเงิน")[0]

@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.domain.money import baht, parse_money
@@ -94,6 +95,36 @@ def sku_costs(request: Request, s: Db):
 @app.post("/sku-costs")
 def add_sku_cost(s: Db, sku: Annotated[str, Form()], product_name: Annotated[str, Form()], unit_cost: Annotated[str, Form()], effective_from: Annotated[date, Form()]):
     db.insert_sku_cost(s, sku=sku.strip(), product_name=product_name.strip(), unit_cost=parse_money(unit_cost), effective_from=effective_from)
+    s.commit()
+    return RedirectResponse("/sku-costs", status_code=303)
+
+
+@app.get("/sku-costs/{cost_id}/edit", response_class=HTMLResponse)
+def edit_sku_cost_form(request: Request, s: Db, cost_id: int, error: str | None = None):
+    row = db.get_sku_cost(s, cost_id)
+    if row is None:
+        return RedirectResponse("/sku-costs", status_code=303)
+    return _render(request, "sku_cost_edit.html", row=row, error=error)
+
+
+@app.post("/sku-costs/{cost_id}/edit")
+def edit_sku_cost(s: Db, cost_id: int, sku: Annotated[str, Form()], product_name: Annotated[str, Form()], unit_cost: Annotated[str, Form()],
+                  effective_from: Annotated[date, Form()]):
+    try:
+        db.update_sku_cost(s, cost_id, sku=sku.strip(), product_name=product_name.strip(), unit_cost=parse_money(unit_cost), effective_from=effective_from)
+        s.commit()
+    except IntegrityError:
+        s.rollback()
+        return RedirectResponse(f"/sku-costs/{cost_id}/edit?error=duplicate", status_code=303)
+    except ValueError:
+        s.rollback()
+        return RedirectResponse(f"/sku-costs/{cost_id}/edit?error=money", status_code=303)
+    return RedirectResponse("/sku-costs", status_code=303)
+
+
+@app.post("/sku-costs/{cost_id}/delete")
+def remove_sku_cost(s: Db, cost_id: int):
+    db.delete_sku_cost(s, cost_id)
     s.commit()
     return RedirectResponse("/sku-costs", status_code=303)
 

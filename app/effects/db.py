@@ -226,6 +226,26 @@ def insert_sku_cost(s: Session, *, sku: str, product_name: str, unit_cost: int, 
     return row
 
 
+def get_sku_cost(s: Session, cost_id: int) -> SkuCostRow | None:
+    return s.get(SkuCostRow, cost_id)
+
+
+def update_sku_cost(s: Session, cost_id: int, *, sku: str, product_name: str, unit_cost: int, effective_from: date) -> SkuCostRow | None:
+    row = s.get(SkuCostRow, cost_id)
+    if row is None:
+        return None
+    row.sku, row.product_name, row.unit_cost, row.effective_from = sku, product_name, unit_cost, effective_from
+    s.flush()
+    return row
+
+
+def delete_sku_cost(s: Session, cost_id: int) -> None:
+    row = s.get(SkuCostRow, cost_id)
+    if row is not None:
+        s.delete(row)
+        s.flush()
+
+
 def known_skus_without_cost(s: Session) -> list[tuple[str, str]]:
     have = {r.sku for r in s.scalars(select(SkuCostRow))}
     seen: dict[str, str] = {}
@@ -254,3 +274,4 @@ def delete_expense(s: Session, expense_id: int) -> None:
     row = s.get(ExpenseRow, expense_id)
     if row is not None:
         s.delete(row)
+        s.flush()
