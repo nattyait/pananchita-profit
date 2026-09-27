@@ -1,0 +1,49 @@
+# ColumnMapping ของ TikTok Shop — ข้อมูล ไม่ใช่โค้ด
+# ล็อกจากไฟล์จริง ก.ย. 2026 (tests/fixtures_tiktok_real.py): รายได้ = income_….xlsx ชีต "รายละเอียดคำสั่งซื้อ",
+# คำสั่งซื้อ = CSV จาก Seller Center (หัวคอลัมน์อังกฤษ ค่าบางช่องมี tab ต่อท้าย)
+platform: tiktok
+reports:
+  income:
+    required: [order_id, transaction_type, settled_at, net_received]
+    headers:
+      order_id:         ["หมายเลขคำสั่งซื้อ/การปรับ", "Order/adjustment ID"]
+      transaction_type: ["ประเภทธุรกรรม", "Type"]
+      ordered_at:       ["เวลาที่สร้างคำสั่งซื้อ", "Order created time"]
+      settled_at:       ["เวลาที่ชำระคำสั่งซื้อ", "Order settled time"]
+      net_received:     ["ยอดการชำระเงินทั้งหมด", "Total settlement amount"]
+      product_price:    ["รายได้ทั้งหมด", "Total revenue"]
+      fee_total:        ["ค่าธรรมเนียมทั้งหมด", "Total fees"]
+      commission_fee:   ["ค่าคอมมิชชั่น TikTok Shop", "TikTok Shop commission fee"]
+      transaction_fee:  ["ค่าธรรมเนียมคำสั่งซื้อ", "Transaction fee"]
+      affiliate_fee:    ["ค่าคอมมิชชั่นแอฟฟิลิเอต", "Affiliate commission"]
+      affiliate_partner_fee: ["ค่าคอมมิชชั่นของพาร์ทเนอร์แอฟฟิลิเอต", "Affiliate partner commission"]
+      affiliate_ads_fee: ["ค่าคอมมิชชั่นแอฟฟิลิเอตสำหรับโฆษณาร้านค้า", "Affiliate shop ads commission"]
+      affiliate_ads_partner_fee: ["ค่าคอมมิชชั่นโฆษณาร้านค้าพาร์ทเนอร์แอฟฟิลิเอต", "Affiliate partner shop ads commission"]
+      platform_fee:     ["ค่าธรรมเนียมโครงสร้างพื้นฐาน", "Infrastructure fee"]
+      ads_fee:          ["ค่าโฆษณา GMV Max", "GMV Max ads"]
+      shipping_fee_diff: ["ยอดรวมค่าจัดส่งที่ร้านค้าจ่ายจริง", "Total shipping fee paid by seller"]
+    options:
+      # แถวที่เป็นออเดอร์จริง → Settlement
+      order_types: ["คำสั่งซื้อ", "Order"]
+      # แถวที่แพลตฟอร์มหักเงินจากยอดโอน แต่ไม่ผูกออเดอร์ → Expense (ADR-0005)
+      charge_types:
+        "การชำระเงินด้วย GMV สำหรับโฆษณา TikTok": ads
+        "ข้อผิดพลาดจากทางร้านค้า": other
+      # แถวที่เป็นแค่จังหวะเงิน (จ่ายล่วงหน้า/หักคืน) ไม่นับ
+      ignore_types: ["การจ่ายเงินสำหรับการชำระเงินล่วงหน้า", "การหักเงินคืนสำหรับการชำระเงินล่วงหน้า"]
+  orders:
+    required: [order_id, ordered_at, product_name, quantity]
+    headers:
+      order_id:       ["Order ID", "หมายเลขคำสั่งซื้อ"]
+      ordered_at:     ["Created Time", "เวลาที่สร้าง"]
+      status:         ["Order Status", "สถานะคำสั่งซื้อ"]
+      sku:            ["Seller SKU", "SKU ผู้ขาย"]
+      product_name:   ["Product Name", "ชื่อสินค้า"]
+      variant_name:   ["Variation", "ตัวเลือกสินค้า"]
+      quantity:       ["Quantity", "จำนวน"]
+      returned_quantity: ["Sku Quantity of return", "จำนวนที่คืน"]
+      line_total:     ["SKU Subtotal After Discount", "ยอดรวมหลังหักส่วนลด"]
+      payment_method: ["Payment Method", "วิธีการชำระเงิน"]
+    options:
+      cancelled_statuses: ["ยกเลิกแล้ว", "ยกเลิก", "Cancelled", "Canceled"]
+      default_variations: ["ค่าเริ่มต้น", "Default"]
