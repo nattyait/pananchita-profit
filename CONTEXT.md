@@ -21,7 +21,8 @@
 | **fee breakdown** | commission_fee, service_fee, transaction_fee, affiliate_fee, tax_fee, platform_fee, ads_fee, shipping_fee_diff, other_adjustment | เก็บไว้เพื่ออธิบาย ไม่ใช่เพื่อคำนวณ net_received |
 | **SkuCost** | ต้นทุนต่อชิ้นของ SKU มีผลตั้งแต่ effective_from | effective-dated; ไม่แก้ย้อนหลัง เพิ่มแถวใหม่แทน |
 | **COGS** | ต้นทุนสินค้าของออเดอร์ = Σ quantity × SkuCost ที่มีผล ณ ordered_at | ถ้า SKU ไม่มีต้นทุน → เป็น "ปัญหา" ไม่ใช่ 0 |
-| **Expense** | ค่าใช้จ่ายตามช่วงเวลา: kind (`ads`, `staff`, `tax`, `other`), amount, incurred_on, platform (หรือ `shared`) | เข้าคิด P&L ตาม incurred_on |
+| **Expense** | ค่าใช้จ่ายตามช่วงเวลา: kind (`ads`, `staff`, `tax`, `other`), amount, incurred_on, platform (หรือ `shared`), source_ref | เข้าคิด P&L ตาม incurred_on |
+| **PlatformCharge** | Expense ที่แพลตฟอร์มหักจากยอดโอนโดยไม่ผูกออเดอร์ (เช่น ค่าแอด GMV Max ของ TikTok) นำเข้าจากรายงานรายได้; `source_ref` = `<platform>:<transaction id>` กันซ้ำ | ADR-0005 |
 | **shared** | ค่าใช้จ่ายที่ไม่ผูกกับ platform เดียว เช่น เงินเดือน ภาษี | ถูก **allocate** ตามสัดส่วน net_received |
 | **Allocation** | กฎกระจาย Expense ลงสู่ platform และ order ตามสัดส่วน net_received ในช่วงเวลา | ADR-0002; ฟังก์ชันเดียวใน `domain/allocation.py` |
 | **OrderContribution** | กำไรขั้นต้นต่อออเดอร์ = net_received − COGS | ไม่รวมค่าใช้จ่ายส่วนกลาง |
