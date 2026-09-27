@@ -33,6 +33,7 @@ reports:
       product_name:   ["ชื่อสินค้า", "Product Name"]
       variant_name:   ["ชื่อตัวเลือก", "Variation Name"]
       quantity:       ["จำนวน", "Quantity"]
+      unit_price:     ["ราคาขายสุทธิ", "Deal Price", "ราคาขาย", "Price"]
       payment_method: ["ช่องทางการชำระเงิน", "Payment Method"]
     options:
       cancelled_statuses: ["ยกเลิกแล้ว", "ยกเลิก", "Cancelled", "Canceled"]
