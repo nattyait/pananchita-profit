@@ -58,12 +58,16 @@ class ImportReport:
             records = mapping.to_records(rows, header_idx, resolved)
             parser = parser_for(platform)
             if kind is ReportKind.INCOME:
-                result = parser.parse_income(records)
+                result = parser.parse_income(records, spec.options)
                 count = db.insert_settlements(self.s, upload.id, result.values)
+                charges_added = db.insert_charges_if_new(self.s, result.charges)
             else:
                 result = parser.parse_orders(records, spec.options)
                 count = db.insert_order_lines(self.s, upload.id, result.values)
+                charges_added = 0
             problems = [f"แถว {p.row_no}: {p.message}" if p.row_no else p.message for p in result.problems]
+            if charges_added:
+                problems.insert(0, f"นำเข้าค่าใช้จ่ายที่แพลตฟอร์มหักจากยอดโอน {charges_added} รายการ (ดูในหน้า ค่าใช้จ่าย)")
             db.set_upload_status(self.s, upload.id, status="imported", row_count=count, problems=problems)
             self.s.commit()
             log.info("imported upload_id=%s sha=%s rows=%s problems=%s", upload.id, sha, count, len(problems))

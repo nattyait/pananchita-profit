@@ -83,6 +83,7 @@ class Expense:
     incurred_on: date
     note: str = ""
     id: int | None = None
+    source_ref: str = ""  # "<platform>:<transaction id>" for charges imported from an income statement (ADR-0005); empty when typed by staff
 
 
 @dataclass(frozen=True)
@@ -99,3 +100,4 @@ T = TypeVar("T")
 class ParseResult[T]:
     values: tuple[T, ...]
     problems: tuple[ImportProblem, ...]
+    charges: tuple[Expense, ...] = ()  # platform charges found in an income statement (ADR-0005)

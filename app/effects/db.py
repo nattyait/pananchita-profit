@@ -92,6 +92,7 @@ class ExpenseRow(Base):
     amount: Mapped[int] = mapped_column(Integer)
     incurred_on: Mapped[date] = mapped_column(Date, index=True)
     note: Mapped[str] = mapped_column(String(255), default="")
+    source_ref: Mapped[str] = mapped_column(String(80), default="", index=True)
 
 
 def make_session_factory(url: str) -> sessionmaker[Session]:
@@ -112,6 +113,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "tax_fee": "INTEGER NOT NULL DEFAULT 0", "platform_fee": "INTEGER NOT NULL DEFAULT 0", "ads_fee": "INTEGER NOT NULL DEFAULT 0",
         "shipping_fee_diff": "INTEGER NOT NULL DEFAULT 0", "other_adjustment": "INTEGER NOT NULL DEFAULT 0",
     },
+    "expenses": {"source_ref": "VARCHAR(80) NOT NULL DEFAULT ''"},
     "order_lines": {
         "product_name": "VARCHAR(255) NOT NULL DEFAULT ''", "status": "VARCHAR(80) NOT NULL DEFAULT ''",
         "payment_method": "VARCHAR(80) NOT NULL DEFAULT ''", "cancelled": "BOOLEAN NOT NULL DEFAULT 0", "line_amount": "INTEGER NOT NULL DEFAULT 0",
@@ -257,7 +259,7 @@ def known_skus_without_cost(s: Session) -> list[tuple[str, str]]:
 
 # ---------- expenses ----------
 def all_expenses(s: Session) -> tuple[Expense, ...]:
-    return tuple(Expense(ExpenseKind(r.kind), r.platform, r.amount, r.incurred_on, r.note, r.id) for r in s.scalars(select(ExpenseRow)))
+    return tuple(Expense(ExpenseKind(r.kind), r.platform, r.amount, r.incurred_on, r.note, r.id, r.source_ref) for r in s.scalars(select(ExpenseRow)))
 
 
 def list_expense_rows(s: Session) -> list[ExpenseRow]:
@@ -269,6 +271,21 @@ def insert_expense(s: Session, *, kind: str, platform: str, amount: int, incurre
     s.add(row)
     s.flush()
     return row
+
+
+def insert_charges_if_new(s: Session, charges: tuple[Expense, ...]) -> int:
+    """Insert imported platform charges whose source_ref is not stored yet. Returns how many were added."""
+    refs = [c.source_ref for c in charges if c.source_ref]
+    existing = set(s.scalars(select(ExpenseRow.source_ref).where(ExpenseRow.source_ref.in_(refs)))) if refs else set()
+    added = 0
+    for c in charges:
+        if c.source_ref in existing:
+            continue
+        s.add(ExpenseRow(kind=c.kind.value, platform=c.platform, amount=c.amount, incurred_on=c.incurred_on, note=c.note, source_ref=c.source_ref))
+        existing.add(c.source_ref)
+        added += 1
+    s.flush()
+    return added
 
 
 def delete_expense(s: Session, expense_id: int) -> None:

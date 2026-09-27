@@ -3,11 +3,12 @@ from __future__ import annotations
 
 from types import ModuleType
 
-from app.domain.platforms import shopee
+from app.domain.platforms import shopee, tiktok
 from app.domain.types import Platform
 
 PARSERS: dict[Platform, ModuleType] = {
     Platform.SHOPEE: shopee,
+    Platform.TIKTOK: tiktok,
 }
 
 
