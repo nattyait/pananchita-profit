@@ -14,6 +14,18 @@ make run              # เปิด http://localhost:8000
 ```
 ข้อมูลทั้งหมดอยู่ใน `data/` (`app.db` + `uploads/`) — สำรองโฟลเดอร์นี้ทุกคืน
 
+## Deploy บน Railway (ผ่าน GitHub)
+```bash
+git remote add origin https://github.com/<user>/pananchita-profit.git
+git push -u origin main
+```
+บน Railway: **New Project › Deploy from GitHub repo** เลือก repo นี้ (มี `Dockerfile` + `railway.json` แล้ว) จากนั้น
+1. **Volume** — Add Volume ให้ service, mount path `/data` (ถ้าไม่ทำ ข้อมูลหายทุกครั้งที่ deploy ใหม่)
+2. **Variables** — `PNC_DATA_DIR=/data` (Dockerfile ตั้งไว้แล้ว แต่ใส่ซ้ำได้)
+3. **Settings › Networking › Generate Domain** — ได้ URL ให้พนักงานเปิดใช้
+
+ยังไม่มี login ใน v1 — ถ้าเปิดสาธารณะ ให้ใส่ Railway private networking หรือเพิ่ม basic auth ก่อน (มี issue ใน ADR ถัดไป)
+
 ## ลำดับการใช้ (ครั้งแรก)
 1. **ต้นทุนสินค้า** — ใส่ต้นทุน/ชิ้นของทุก SKU พร้อมวันที่มีผล
 2. **อัพโหลดรายงาน** Shopee ทั้งสองไฟล์
