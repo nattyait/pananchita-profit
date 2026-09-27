@@ -15,6 +15,22 @@ from app.domain.types import SHARED, Expense, ExpenseKind, ImportProblem, OrderL
 
 
 @dataclass(frozen=True)
+class OrderLineProfit:
+    """One product line's share of an order (ADR-0004)."""
+
+    sku: str
+    product_name: str
+    quantity: int
+    net_received: int  # share of the order's Settlement
+    cogs: int | None
+    allocated_expense: int  # share
+
+    @property
+    def profit(self) -> int | None:
+        return None if self.cogs is None else self.net_received - self.cogs - self.allocated_expense
+
+
+@dataclass(frozen=True)
 class OrderProfit:
     platform: Platform
     order_id: str
@@ -25,6 +41,7 @@ class OrderProfit:
     allocated_expense: int
     fee_total: int
     quantity: int
+    lines: tuple[OrderLineProfit, ...] = ()
 
     @property
     def contribution(self) -> int | None:
@@ -69,6 +86,21 @@ class PeriodPnl:
 
 
 @dataclass(frozen=True)
+class ProductPnl:
+    sku: str
+    product_name: str
+    order_count: int
+    quantity: int
+    net_received: int
+    cogs: int
+    expense: int
+
+    @property
+    def net_profit(self) -> int:
+        return self.net_received - self.cogs - self.expense
+
+
+@dataclass(frozen=True)
 class ProfitReport:
     period_start: date
     period_end: date
@@ -77,6 +109,7 @@ class ProfitReport:
     orders: tuple[OrderProfit, ...]
     pending: tuple[PendingOrder, ...]
     problems: tuple[ImportProblem, ...] = field(default_factory=tuple)
+    by_product: dict[str, ProductPnl] = field(default_factory=dict)
 
 
 def effective_cost(costs: tuple[SkuCost, ...], sku: str, on: date) -> int | None:
@@ -97,6 +130,20 @@ def cogs_for(lines: tuple[OrderLine, ...], costs: tuple[SkuCost, ...]) -> tuple[
             continue
         total += unit * line.quantity
     return (None if problems else total, tuple(problems))
+
+
+def split_order_lines(lines: tuple[OrderLine, ...], net_received: int, allocated_expense: int, costs: tuple[SkuCost, ...]) -> tuple[OrderLineProfit, ...]:
+    """ADR-0004: weights = line_amount, else quantity. Shares sum exactly to the order figures."""
+    weights = {i: ln.line_amount for i, ln in enumerate(lines)}
+    if not any(w > 0 for w in weights.values()):
+        weights = {i: ln.quantity for i, ln in enumerate(lines)}
+    net_share = split_proportionally(net_received, weights)
+    exp_share = split_proportionally(allocated_expense, weights)
+    out = []
+    for i, ln in enumerate(lines):
+        unit = effective_cost(costs, ln.sku, ln.ordered_at)
+        out.append(OrderLineProfit(ln.sku, ln.product_name, ln.quantity, net_share.get(i, 0), None if unit is None else unit * ln.quantity, exp_share.get(i, 0)))
+    return tuple(out)
 
 
 def _fee_total(s: Settlement) -> int:
@@ -171,6 +218,7 @@ def build_report(
                 net_received=s.net_received, cogs=cogs,
                 allocated_expense=alloc_by_order.get(key, 0), fee_total=_fee_total(s),
                 quantity=sum(ln.quantity for ln in lines),
+                lines=split_order_lines(lines, s.net_received, alloc_by_order.get(key, 0), sku_costs),
             )
         )
 
@@ -183,6 +231,20 @@ def build_report(
             continue
         first = lines[0]
         pending.append(PendingOrder(first.platform, first.order_id, min(ln.ordered_at for ln in lines), first.status, first.payment_method, sum(ln.quantity for ln in lines)))
+
+    # --- ProductPnl: only lines whose profit is known (ADR-0004) ---
+    prod: dict[str, list] = {}
+    for o in orders:
+        if o.cogs is None:
+            continue
+        for ln in o.lines:
+            acc = prod.setdefault(ln.sku, [ln.product_name, set(), 0, 0, 0, 0])
+            acc[1].add(o.order_id)
+            acc[2] += ln.quantity
+            acc[3] += ln.net_received
+            acc[4] += ln.cogs or 0
+            acc[5] += ln.allocated_expense
+    by_product = {sku: ProductPnl(sku, a[0], len(a[1]), a[2], a[3], a[4], a[5]) for sku, a in prod.items()}
 
     by_platform = {
         p: PeriodPnl(p, count_by_platform[p], net_by_platform[p], cogs_by_platform[p], dict(exp_by_platform.get(p, {})), incomplete_by_platform[p])
@@ -203,4 +265,5 @@ def build_report(
         tuple(sorted(orders, key=lambda o: (o.settled_at, o.order_id), reverse=True)),
         tuple(sorted(pending, key=lambda p: p.ordered_at, reverse=True)),
         tuple(problems),
+        dict(sorted(by_product.items(), key=lambda kv: kv[1].net_profit, reverse=True)),
     )
