@@ -44,6 +44,9 @@ table.grid td.n,table.grid th.n{text-align:right;white-space:nowrap}
 tr.loss td.profit{color:var(--loss);font-weight:600}
 tr.gain td.profit{color:var(--pine);font-weight:600}
 tr.highlight td{background:var(--pine-soft)}
+table.orders tr.line td{font-size:.86rem;color:var(--muted);border-bottom:1px dotted var(--line);padding-top:.15rem;padding-bottom:.15rem}
+table.orders tr.line td.sku{padding-left:1.6rem;max-width:34rem;white-space:normal}
+table.orders tr.line td.profit{font-weight:400}
 .tag{display:inline-block;padding:.05rem .5rem;border-radius:3px;font-size:.8rem}
 .tag.imported{background:var(--pine-soft);color:var(--pine)}
 .tag.failed{background:var(--loss-soft);color:var(--loss)}
