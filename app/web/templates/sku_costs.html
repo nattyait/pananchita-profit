@@ -1,59 +1,78 @@
 {% extends "base.html" %}{% block title %}ต้นทุนสินค้า{% endblock %}
 {% block body %}
 <h1>ต้นทุนสินค้า</h1>
-<p class="hint">ชื่อสินค้าบนแพลตฟอร์มคือ "รายการขาย" เช่น [โปร2แถม2] = กาแฟ 4 กล่อง ให้ผูกรายการขายเข้ากับ <strong>สินค้าฐาน</strong> (เช่น "กาแฟเอสชัวร์โปรคอฟฟี่" หน่วย "กล่อง") พร้อมบอกว่า 1 ชิ้นที่ขาย = กี่หน่วย แล้วใส่<strong>ราคาทุนต่อหน่วย</strong>ที่สินค้าฐานครั้งเดียว ใช้ร่วมกันทุกแพลตฟอร์มเพราะทุนเท่ากัน ส่วนราคาขายที่ตั้งต่างกันในแต่ละแพลตฟอร์ม ใส่ไว้ที่รายการขายตอนผูกได้ รายการขายที่ไม่อยากผูกก็ใส่ต้นทุนต่อชิ้นตรง ๆ ได้</p>
+<div class="steps">
+  <div><b>1</b> รายการขายบนแพลตฟอร์ม (เช่น "[โปร2แถม2] เอสชัวร์ โปร คอฟฟี่") กด <b>ผูกสินค้าฐาน</b></div>
+  <div><b>2</b> บอกว่ามันคือสินค้าจริงอะไร กี่หน่วย เช่น สินค้าฐาน "กาแฟเอสชัวร์โปรคอฟฟี่" หน่วย "กล่อง" · 1 ชิ้นที่ขาย = <b>4</b> กล่อง</div>
+  <div><b>3</b> ใส่ <b>ราคาทุนของ 1 กล่อง</b> ครั้งเดียว ระบบคูณ 4 ให้เอง และเอายอดที่แพลตฟอร์มโอนจริงมาหักให้ในหน้ากำไร ไม่ต้องคำนวณอะไรเอง</div>
+</div>
+
+{% if map_sku %}{% set mp = seen_by_sku.get(map_sku) %}
+<h2 id="map-form">ผูกรายการขายกับสินค้าฐาน</h2>
+<p class="hint"><strong>รายการขาย:</strong> {{ mp.platform if mp else '' }} · {{ mp.product_name if mp else map_sku }}{% if mp and mp.variant_name %} — {{ mp.variant_name }}{% endif %}</p>
+<form class="inline" method="post" action="/listing-maps">
+  <input type="hidden" name="sku" value="{{ map_sku }}">
+  <label>สินค้าจริงคืออะไร (ชื่อสินค้าฐาน ไม่ใส่คำว่าโปร) <input name="base_product" required list="base-names" value="{{ mp.base_product if mp else '' }}" placeholder="เช่น กาแฟเอสชัวร์โปรคอฟฟี่" style="min-width:22rem" autofocus></label>
+  <datalist id="base-names">{% for b in base_products %}<option value="{{ b.name }}">{{ b.unit_label }}</option>{% endfor %}</datalist>
+  <label>หน่วยของสินค้าจริง <input name="unit_label" placeholder="กล่อง" style="min-width:6rem"></label>
+  <label>ขาย 1 ชิ้น ลูกค้าได้กี่หน่วย <input name="units_per_listing" type="number" min="1" required value="{{ mp.units_per_listing if mp and mp.units_per_listing else 1 }}" style="min-width:6rem"></label>
+  <button type="submit">บันทึก แล้วไปใส่ราคาทุนต่อหน่วย</button>
+  <a class="quiet" href="/sku-costs">ยกเลิก</a>
+</form>
+<p class="hint">ตัวอย่าง: โปร 2 แถม 2 → ขาย 1 ชิ้น ลูกค้าได้ 4 กล่อง · โปร 1 กล่อง → 1 · โปร 3 แถม 1 → 4 ทั้งสามรายการผูกเข้าสินค้าฐานเดียวกัน</p>
+{% endif %}
+
+{% if rename %}{% set rb = (base_products|selectattr('name', 'equalto', rename)|first) %}
+<h2 id="rename-form">แก้ชื่อ/หน่วยสินค้าฐาน</h2>
+<form class="inline" method="post" action="/base-products/rename">
+  <input type="hidden" name="old" value="{{ rename }}">
+  <label>ชื่อสินค้าฐาน <input name="new" required value="{{ rename }}" style="min-width:22rem" autofocus></label>
+  <label>หน่วย <input name="unit_label" value="{{ rb.unit_label if rb else '' }}" style="min-width:6rem"></label>
+  <button type="submit">บันทึก</button>
+  <a class="quiet" href="/sku-costs">ยกเลิก</a>
+</form>
+<p class="hint">รายการขายที่ผูกไว้และราคาทุนที่ใส่แล้วจะย้ายตามชื่อใหม่ทั้งหมด</p>
+{% endif %}
 
 <form class="inline" method="post" action="/sku-costs" id="cost-form">
-  <label>สินค้าฐาน หรือ รหัสรายการขาย <input name="sku" required list="cost-keys" value="{{ prefill }}" style="min-width:26rem"></label>
+  {% set pb = (base_products|selectattr('name', 'equalto', prefill)|first) if prefill else none %}
+  <label>{% if pb %}ราคาทุนของ {{ pb.name }}{% else %}สินค้าฐาน หรือ รหัสรายการขาย{% endif %} <input name="sku" required list="cost-keys" value="{{ prefill }}" style="min-width:26rem"></label>
   <datalist id="cost-keys">{% for b in base_products %}<option value="{{ b.name }}">สินค้าฐาน · {{ b.unit_label }}</option>{% endfor %}{% for p in missing if not p.base_product %}<option value="{{ p.sku }}">{{ p.platform }} · {{ p.product_name }}{% if p.variant_name %} — {{ p.variant_name }}{% endif %}</option>{% endfor %}</datalist>
-  <label>ชื่อที่แสดง <input name="product_name" value="{{ seen_by_sku[prefill].product_name if prefill in seen_by_sku else prefill }}"></label>
-  <label>ราคาทุน/หน่วย (บาท) <input name="unit_cost" required inputmode="decimal" placeholder="เช่น 45.50" {% if prefill %}autofocus{% endif %}></label>
+  <input type="hidden" name="product_name" value="{{ seen_by_sku[prefill].product_name if prefill in seen_by_sku else prefill }}">
+  <label>ราคาทุนของ 1 {{ pb.unit_label if pb else 'หน่วย' }} (บาท) <input name="unit_cost" required inputmode="decimal" placeholder="เช่น 60" {% if prefill %}autofocus{% endif %}></label>
   <label>มีผลตั้งแต่ <input type="date" name="effective_from" value="{{ today }}" required></label>
-  <button type="submit">บันทึกต้นทุน</button>
+  <button type="submit">บันทึกราคาทุน</button>
 </form>
+{% if pb %}<p class="hint">ใส่ราคาทุนต่อ 1 {{ pb.unit_label }} เท่านั้น ระบบคูณจำนวนหน่วยของแต่ละรายการขายให้เอง (เช่น โปร 2 แถม 2 = × 4)</p>{% endif %}
 
 {% if base_without_cost %}
-<div class="notice"><strong>สินค้าฐานที่ยังไม่มีต้นทุน:</strong> {% for b in base_without_cost %}<a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ b.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>
+<div class="notice"><strong>สินค้าฐานที่ยังไม่มีราคาทุน:</strong> {% for b in base_without_cost %}<a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ b.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>
 {% endif %}
 
 {% if missing %}
 <h2>รายการขายที่ยังไม่มีต้นทุน <span class="tag wait">{{ missing|length }}</span></h2>
-<p class="hint">จากรายงานคำสั่งซื้อ (ไม่นับออเดอร์ที่ยกเลิก) เรียงตามชิ้นที่ขาย กด "ผูกสินค้าฐาน" เพื่อบอกว่า 1 ชิ้นที่ขาย = กี่หน่วยของสินค้าอะไร หรือ "ใส่ต้นทุนตรง" ถ้าไม่ต้องผูก</p>
 <table class="grid">
   <tr><th>แพลตฟอร์ม</th><th>ชื่อสินค้า</th><th>ตัวเลือก</th><th class="n">ชิ้นที่ขาย</th><th class="n">ออเดอร์</th><th>สินค้าฐาน</th><th></th></tr>
   {% for p in missing %}
-  <tr id="row-{{ loop.index }}"><td>{{ p.platform }}</td><td>{{ p.product_name }}</td><td>{{ p.variant_name or '—' }}</td><td class="n">{{ p.quantity }}</td><td class="n">{{ p.order_count }}</td>
+  <tr><td>{{ p.platform }}</td><td>{{ p.product_name }}</td><td>{{ p.variant_name or '—' }}</td><td class="n">{{ p.quantity }}</td><td class="n">{{ p.order_count }}</td>
   <td>{% if p.base_product %}{{ p.base_product }} × {{ p.units_per_listing }}{% else %}—{% endif %}</td>
   <td class="actions"><a href="/sku-costs?map={{ p.sku|urlencode }}#map-form">ผูกสินค้าฐาน</a> · <a href="/sku-costs?sku={{ p.sku|urlencode }}#cost-form">ใส่ต้นทุนตรง</a></td></tr>
   {% endfor %}
 </table>
 {% endif %}
 
-{% if map_sku %}{% set mp = seen_by_sku.get(map_sku) %}
-<h2 id="map-form">ผูกรายการขายกับสินค้าฐาน</h2>
-<p class="hint">{{ mp.platform if mp else '' }} · {{ mp.product_name if mp else map_sku }}{% if mp and mp.variant_name %} — {{ mp.variant_name }}{% endif %}</p>
-<form class="inline" method="post" action="/listing-maps">
-  <input type="hidden" name="sku" value="{{ map_sku }}">
-  <label>สินค้าฐาน (เลือกหรือพิมพ์ชื่อใหม่) <input name="base_product" required list="base-names" value="{{ mp.base_product if mp else '' }}" style="min-width:22rem" autofocus></label>
-  <datalist id="base-names">{% for b in base_products %}<option value="{{ b.name }}">{{ b.unit_label }}</option>{% endfor %}</datalist>
-  <label>หน่วย (ถ้าสร้างใหม่) <input name="unit_label" placeholder="กล่อง" style="min-width:6rem"></label>
-  <label>1 ชิ้นที่ขาย = กี่หน่วย <input name="units_per_listing" type="number" min="1" required value="{{ mp.units_per_listing if mp and mp.units_per_listing else 1 }}" style="min-width:6rem"></label>
-  <label>ราคาขายที่ตั้งบนแพลตฟอร์มนี้ ต่อหน่วย (บาท, ไว้เทียบ ไม่ใช้คำนวณ) <input name="unit_price" inputmode="decimal" value="{{ (mp.unit_price|baht|replace(',', '')) if mp and mp.unit_price else '' }}" style="min-width:8rem"></label>
-  <button type="submit">บันทึกการผูก</button>
-  <a class="quiet" href="/sku-costs">ยกเลิก</a>
-</form>
-{% endif %}
-
 {% if base_products %}
 <h2>สินค้าฐาน</h2>
 <table class="grid">
-  <tr><th>สินค้าฐาน</th><th>หน่วย</th><th>รายการขายที่ผูกไว้</th><th class="n">หน่วยที่ขาย</th><th></th></tr>
-  {% for b in base_products %}{% set ls = listings_by_base.get(b.name, []) %}
-  <tr><td>{{ b.name }}</td><td>{{ b.unit_label }}</td>
-  <td>{% for p in ls %}<div>{{ p.platform }} · {{ p.product_name }}{% if p.variant_name %} — {{ p.variant_name }}{% endif %} <small>× {{ p.units_per_listing }}{% if p.unit_price %} @ {{ p.unit_price|baht }}{% endif %}</small>
+  <tr><th>สินค้าฐาน</th><th class="n">ราคาทุน / 1 หน่วย</th><th>รายการขายที่ผูกไว้ → ต้นทุนต่อ 1 ชิ้นที่ขาย</th><th class="n">หน่วยที่ขาย</th><th></th></tr>
+  {% for b in base_products %}{% set ls = listings_by_base.get(b.name, []) %}{% set uc = latest_cost.get(b.name) %}
+  <tr><td>{{ b.name }}<div class="sku">หน่วย: {{ b.unit_label }}</div></td>
+  <td class="n">{% if uc is not none %}{{ uc|baht }} / {{ b.unit_label }}{% else %}<span class="tag wait">ยังไม่ใส่</span>{% endif %}</td>
+  <td>{% for p in ls %}<div>{{ p.platform }} · {{ p.product_name }}{% if p.variant_name %} — {{ p.variant_name }}{% endif %}
+    <small>× {{ p.units_per_listing }} {{ b.unit_label }}{% if uc is not none %} = ต้นทุน {{ (uc * p.units_per_listing)|baht }} / ชิ้น{% endif %}</small>
     <form method="post" action="/listing-maps/delete" style="display:inline"><input type="hidden" name="sku" value="{{ p.sku }}"><button class="danger" type="submit" title="ยกเลิกการผูก">✕</button></form></div>{% else %}—{% endfor %}</td>
   <td class="n">{% set ns = namespace(u=0) %}{% for p in ls %}{% set ns.u = ns.u + p.quantity * p.units_per_listing %}{% endfor %}{{ ns.u }}</td>
-  <td class="actions"><a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">ใส่/เพิ่มต้นทุน</a></td></tr>
+  <td class="actions"><a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ 'เปลี่ยนราคาทุน' if uc is not none else 'ใส่ราคาทุน' }}</a> · <a href="/sku-costs?rename={{ b.name|urlencode }}#rename-form">แก้ชื่อ/หน่วย</a></td></tr>
   {% endfor %}
 </table>
 {% endif %}
@@ -65,6 +84,6 @@
 <td>{% if p %}รายการขาย ({{ p.platform }}){% else %}สินค้าฐาน{% endif %}</td>
 <td class="n">{{ r.unit_cost|baht }}</td><td>{{ r.effective_from.strftime('%d/%m/%Y') }}</td>
 <td class="actions"><a href="/sku-costs/{{ r.id }}/edit">แก้ไข</a>
-<form method="post" action="/sku-costs/{{ r.id }}/delete" onsubmit="return confirm('ลบต้นทุนนี้? ออเดอร์ที่ใช้ต้นทุนนี้จะกลับไปเป็น ไม่ทราบต้นทุน')"><button class="danger" type="submit">ลบ</button></form></td></tr>{% endfor %}</table>
-{% else %}<div class="empty">ยังไม่มีต้นทุน — ผูกรายการขายกับสินค้าฐานด้านบน แล้วใส่ต้นทุนต่อหน่วย</div>{% endif %}
+<form method="post" action="/sku-costs/{{ r.id }}/delete" onsubmit="return confirm('ลบราคาทุนนี้? ออเดอร์ที่ใช้ราคาทุนนี้จะกลับไปเป็น ไม่ทราบต้นทุน')"><button class="danger" type="submit">ลบ</button></form></td></tr>{% endfor %}</table>
+{% else %}<div class="empty">ยังไม่มีราคาทุน — เริ่มจากกด "ผูกสินค้าฐาน" ที่รายการขายด้านบน</div>{% endif %}
 {% endblock %}
