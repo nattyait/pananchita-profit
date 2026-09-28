@@ -242,8 +242,15 @@ def list_sku_cost_rows(s: Session) -> list[SkuCostRow]:
 
 
 def insert_sku_cost(s: Session, *, sku: str, product_name: str, unit_cost: int, effective_from: date) -> SkuCostRow:
-    row = SkuCostRow(sku=sku, product_name=product_name, unit_cost=unit_cost, effective_from=effective_from)
-    s.add(row)
+    """Upsert on (sku, effective_from): saving the same product for the same date replaces that date's cost."""
+    row = s.scalar(select(SkuCostRow).where(SkuCostRow.sku == sku, SkuCostRow.effective_from == effective_from))
+    if row is None:
+        row = SkuCostRow(sku=sku, product_name=product_name, unit_cost=unit_cost, effective_from=effective_from)
+        s.add(row)
+    else:
+        row.unit_cost = unit_cost
+        if product_name:
+            row.product_name = product_name
     s.flush()
     return row
 
