@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}ผูกทีละหลายรายการ{% endblock %}
+{% block body %}
+<h1>ผูกรายการขายทีละหลายรายการ</h1>
+<p class="hint">ร้านเปลี่ยนชื่อสินค้าตามโปร (เช่น [โปร2แถม2] → [โปร3แถม2]) ระบบจึงเห็นเป็นรายการใหม่ หน้านี้เติม <b>สินค้าฐาน</b> จากรายการเดิมที่ชื่อสินค้าตรงกัน
+และเดา <b>จำนวนหน่วยต่อ 1 ชิ้นที่ขาย</b> จากข้อความโปร (เช่น 3แถม2 → 5) ให้ไล่ดูว่าถูก แก้ตัวที่ผิด แล้วกดบันทึกครั้งเดียว
+ช่องที่เว้นสินค้าฐานว่างไว้จะยังไม่ถูกบันทึก</p>
+
+{% if saved is not none %}
+<div class="notice">บันทึกแล้ว {{ saved }} รายการ{% if invalid %} · <strong>{{ invalid }} รายการยังไม่บันทึก</strong> เพราะจำนวนหน่วยว่างหรือไม่ใช่ตัวเลขที่มากกว่า 0{% endif %}
+  · <a href="/sku-costs">ไปหน้าต้นทุนสินค้า</a> เพื่อใส่ราคาทุนของสินค้าฐานที่ยังไม่มีราคา</div>
+{% endif %}
+
+{% if rows %}
+<form method="post" action="/listing-maps/bulk">
+<datalist id="base-names">{% for b in base_products %}<option value="{{ b.name }}">{{ b.unit_label }}</option>{% endfor %}</datalist>
+<table class="grid">
+  <tr><th>แพลตฟอร์ม</th><th>ชื่อสินค้า</th><th>ตัวเลือก</th><th class="n">ชิ้นที่ขาย</th><th>สินค้าฐาน</th><th class="n">หน่วยต่อ 1 ชิ้นที่ขาย</th></tr>
+  {% for r in rows %}{% set p = r.listing %}{% set g = r.suggestion %}
+  <tr><td>{{ p.platform }}</td><td>{{ p.product_name }}</td><td>{{ p.variant_name or '—' }}</td><td class="n">{{ p.quantity }}</td>
+    <td><input type="hidden" name="sku" value="{{ p.sku }}">
+      <input name="base_product" list="base-names" value="{{ g.base_product }}" placeholder="ยังไม่ผูก" style="min-width:18rem">
+      {% if g.base_product %}<div class="sku">เดาจากรายการเดิมที่ชื่อตรงกัน</div>{% endif %}</td>
+    <td class="n"><input name="units_per_listing" type="number" min="1" value="{{ g.units_per_listing or '' }}" style="width:5rem">
+      {% if g.units_per_listing %}<div class="sku">เดาจากข้อความโปร</div>{% endif %}</td></tr>
+  {% endfor %}
+</table>
+<p><button type="submit">บันทึกทุกแถวที่ใส่สินค้าฐานแล้ว</button> <a class="quiet" href="/sku-costs">ยกเลิก</a></p>
+</form>
+{% else %}
+<div class="empty">ไม่มีรายการขายที่ยังไม่ได้ผูก</div>
+{% endif %}
+{% endblock %}

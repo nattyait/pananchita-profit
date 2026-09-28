@@ -53,6 +53,7 @@
 
 {% if missing %}
 <h2>รายการขายที่ยังไม่มีต้นทุน <span class="tag wait">{{ missing|length }}</span></h2>
+<p><a href="/listing-maps/bulk"><b>ผูกทีละหลายรายการ</b></a> — ระบบเติมสินค้าฐานและจำนวนหน่วยให้จากชื่อโปร แค่ตรวจแล้วกดบันทึกครั้งเดียว</p>
 <table class="grid">
   <tr><th>แพลตฟอร์ม</th><th>ชื่อสินค้า</th><th>ตัวเลือก</th><th class="n">ชิ้นที่ขาย</th><th class="n">ออเดอร์</th><th>สินค้าฐาน</th><th></th></tr>
   {% for p in missing %}

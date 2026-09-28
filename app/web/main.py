@@ -17,6 +17,7 @@ from app.domain.types import SHARED, ExpenseKind, Platform, ReportKind
 from app.effects import db, file_store
 from app.orchestration.base_products import DeleteUnusedBaseProduct
 from app.orchestration.import_report import ImportReport
+from app.orchestration.listing_maps import BulkMapListings
 from app.orchestration.profit_report import BuildProfitReport
 from app.web import settings
 
@@ -113,6 +114,19 @@ def save_listing_map(s: Db, sku: Annotated[str, Form()], base_product: Annotated
                           unit_price=parse_money(unit_price) if unit_price.strip() else 0)
     s.commit()
     return RedirectResponse(f"/sku-costs?sku={quote(name)}#cost-form" if name not in {r.sku for r in db.list_sku_cost_rows(s)} else "/sku-costs", status_code=303)
+
+
+@app.get("/listing-maps/bulk", response_class=HTMLResponse)
+def bulk_listing_maps_form(request: Request, s: Db, saved: int | None = None, invalid: int = 0):
+    return _render(request, "listing_maps_bulk.html", rows=BulkMapListings(s).rows(), base_products=db.list_base_products(s),
+                   saved=saved, invalid=invalid)
+
+
+@app.post("/listing-maps/bulk")
+def bulk_listing_maps(s: Db, sku: Annotated[list[str] | None, Form()] = None, base_product: Annotated[list[str] | None, Form()] = None,
+                      units_per_listing: Annotated[list[str] | None, Form()] = None):
+    saved, invalid = BulkMapListings(s).run(list(zip(sku or [], base_product or [], units_per_listing or [], strict=False)))
+    return RedirectResponse(f"/listing-maps/bulk?saved={saved}&invalid={invalid}", status_code=303)
 
 
 @app.post("/listing-maps/units")
