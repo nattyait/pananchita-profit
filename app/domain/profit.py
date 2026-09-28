@@ -147,8 +147,10 @@ def cogs_for(lines: tuple[OrderLine, ...], costs: tuple[SkuCost, ...], maps: dic
     for line in lines:
         unit = effective_unit_cost(costs, maps, line.sku, line.ordered_at)
         if unit is None:
-            what = f"สินค้าฐาน {maps[line.sku].base_product}" if line.sku in maps else f"รายการ {line.sku}"
-            problems.append(ImportProblem(f"ไม่มีต้นทุนของ{what} ณ วันที่ {line.ordered_at:%d/%m/%Y}", None, "sku"))
+            m = maps.get(line.sku)
+            what = f"สินค้าฐาน {m.base_product}" if m else f"รายการ {line.sku}"
+            field, key = ("base_product", m.base_product) if m else ("sku", line.sku)
+            problems.append(ImportProblem(f"ไม่มีต้นทุนของ{what} ณ วันที่ {line.ordered_at:%d/%m/%Y}", None, field, key))
             continue
         total += unit * line.quantity
     return (None if problems else total, tuple(problems))

@@ -102,6 +102,7 @@ class ImportProblem:
     message: str
     row_no: int | None = None
     field: str | None = None
+    key: str = ""  # the ProductKey or BaseProduct name the problem is about, so the screen can link to its fix
 
 
 T = TypeVar("T")

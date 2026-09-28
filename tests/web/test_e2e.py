@@ -107,12 +107,15 @@ def test_upload_then_dashboard_shows_profit(client):
     assert r.status_code == 303
     before = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     assert "ไฟล์ที่ต้อง export" in before and "รายงานคำสั่งซื้อ (ทั้งหมด)" in before and "16/08/2026 – 15/09/2026" in before
+    assert 'ยังไม่มีรายการสินค้า (อัพโหลดรายงานคำสั่งซื้อ)\n     · <a href="/upload">' in before
     ords =_xlsx([["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"], ["A1", "2026-09-10", "ครีม", "PNC-001", 2]])
     client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"}, files={"file": ("ord.xlsx", ords)})
     costs = client.get("/sku-costs").text
     assert "ยังไม่มีต้นทุน" in costs and "ผูกสินค้าฐาน" in costs and "ใส่ต้นทุนตรง" not in costs
     unknown = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     assert 'href="/sku-costs?map=PNC-001#map-form"' in unknown  # missing cost links straight to the listing's map form
+    problems_box = unknown[unknown.find("รายการที่คิดต้นทุนไม่ได้"):unknown.find("</ul>", unknown.find("รายการที่คิดต้นทุนไม่ได้"))]
+    assert "ไม่มีต้นทุนของรายการ PNC-001" in problems_box and 'href="/sku-costs?map=PNC-001#map-form">ผูกสินค้าฐาน / ใส่ต้นทุน' in problems_box
     client.post("/sku-costs", data={"sku": "PNC-001", "product_name": "ครีม", "unit_cost": "50", "effective_from": "2026-01-01"})
     assert "map=PNC-001" not in client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     client.post("/expenses", data={"kind": "ads", "platform": "shopee", "amount": "35", "incurred_on": "2026-09-20", "note": ""})
