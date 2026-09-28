@@ -60,5 +60,8 @@ def test_upload_then_dashboard_shows_profit(client):
     client.post("/sku-costs", data={"sku": "ครีมฐาน", "product_name": "ครีมฐาน", "unit_cost": "20", "effective_from": "2026-01-01"})
     page = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     assert "กำไรตามสินค้าฐาน" in page and "80.00" in page
+    client.post("/base-products/rename", data={"old": "ครีมฐาน", "new": "ครีม", "unit_label": "หลอด"})
+    costs_page = client.get("/sku-costs").text
+    assert "ครีม" in costs_page and "หลอด" in costs_page and "= ต้นทุน 40.00 / ชิ้น" in costs_page
     assert client.get("/uploads").status_code == 200
     assert "A1" not in client.get("/", params={"start": "2026-10-01", "end": "2026-10-31", "platform": "shopee"}).text.split("รอรับเงิน")[0]
