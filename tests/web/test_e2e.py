@@ -90,6 +90,17 @@ def test_merge_base_products_and_rename_into_existing_name(client):
     assert "เป็นรหัสสินค้าโดยตรง" in r.text
 
 
+def test_fully_returned_order_shows_a_label_instead_of_zeros(client):
+    inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["R1", "2026-08-31", 0]])
+    client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("i.xlsx", inc)})
+    ords = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"], ["R1", "2026-08-30", "โลชั่น", "", 0]])
+    client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"}, files={"file": ("o.xlsx", ords)})
+    page = client.get("/", params={"start": "2026-08-01", "end": "2026-08-31"}).text
+    orders = page[page.find("กำไรรายออเดอร์"):]
+    assert "คืนสินค้าทั้งหมด" in orders and "ไม่ได้เงินและไม่มีต้นทุน" in orders
+    assert "0.00" not in orders.split("รอรับเงิน")[0]
+
+
 def test_upload_then_dashboard_shows_profit(client):
     inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["A1", "2026-09-15", 285]])
     r = client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("inc.xlsx", inc)}, follow_redirects=False)

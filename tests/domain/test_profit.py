@@ -161,3 +161,24 @@ def test_listing_map_multiplies_base_product_cost_and_reports_base_units():
     r2 = build_report(period_start=SEP1, period_end=SEP30, settlements=(sett("T1", SEP1, 70000, platform=Platform.TIKTOK),),
                       order_lines=(OrderLine(Platform.TIKTOK, "T1", 1, "[2แถม2] กาแฟ | ค่าเริ่มต้น", 2, SEP1),), sku_costs=(), expenses=(), listing_maps=maps)
     assert r2.orders[0].cogs is None and "สินค้าฐาน กาแฟ TikTok" in r2.problems[0].message
+
+
+def _order(quantity, net, fees, lines=1):
+    from app.domain.profit import OrderLineProfit, OrderProfit
+    ls = tuple(OrderLineProfit("SKU", "x", quantity, net, 0, 0) for _ in range(lines))
+    return OrderProfit(Platform.TIKTOK, "O", date(2026, 8, 31), date(2026, 8, 30), net, 0, 0, fees, quantity, ls)
+
+
+def test_order_with_every_piece_returned_and_no_money_is_an_empty_return():
+    o = _order(0, 0, 0)
+    assert o.fully_returned and o.empty_return
+
+
+def test_fully_returned_order_that_still_moved_money_keeps_its_numbers():
+    o = _order(0, -1500, -1500)  # e.g. return shipping charged to the seller
+    assert o.fully_returned and not o.empty_return
+
+
+def test_order_with_pieces_or_without_lines_is_not_a_return():
+    assert not _order(2, 28500, 0).fully_returned
+    assert not _order(0, 0, 0, lines=0).fully_returned  # no order lines yet: that is a problem, not a return
