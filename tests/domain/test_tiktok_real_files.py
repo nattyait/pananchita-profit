@@ -62,10 +62,11 @@ def test_orders_csv_product_key_returns_and_line_amount():
     assert returned.quantity == 0  # 1 ordered − 1 returned → no COGS
     assert returned.sku.endswith(" | 2แถม2") and returned.ordered_at == date(2026, 9, 17)
     assert returned.line_amount == 111200 and returned.payment_method == "PayLater"
+    assert returned.variant_name == "2แถม2" and returned.product_name.startswith("[2แถม2]")
     multi = [ln for ln in lines if ln.order_id == "585951609309005107"]
     assert [ln.line_no for ln in multi] == [1, 2]
     default_var = next(ln for ln in lines if ln.order_id == "585996677707498914")
-    assert " | " not in default_var.sku  # "ค่าเริ่มต้น" is not a variation
+    assert " | " not in default_var.sku and default_var.variant_name == ""  # "ค่าเริ่มต้น" is not a variation
     with_sku = next(ln for ln in lines if ln.order_id == "585871384241145788")
     assert with_sku.sku == "รสคุกกี้แอนด์ครีม 1"  # Seller SKU wins when present
     assert all(ln.platform is Platform.TIKTOK for ln in lines)
