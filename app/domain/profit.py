@@ -11,7 +11,7 @@ from datetime import date
 
 from app.domain.allocation import split_proportionally
 from app.domain.dates import in_period
-from app.domain.types import SHARED, Expense, ExpenseKind, ImportProblem, OrderLine, Platform, Settlement, SkuCost
+from app.domain.types import SHARED, Expense, ExpenseKind, ImportProblem, ListingMap, OrderLine, Platform, Settlement, SkuCost
 
 
 @dataclass(frozen=True)
@@ -110,6 +110,7 @@ class ProfitReport:
     pending: tuple[PendingOrder, ...]
     problems: tuple[ImportProblem, ...] = field(default_factory=tuple)
     by_product: dict[str, ProductPnl] = field(default_factory=dict)
+    by_base_product: dict[str, ProductPnl] = field(default_factory=dict)  # quantity = base units (ADR-0006)
 
 
 def effective_cost(costs: tuple[SkuCost, ...], sku: str, on: date) -> int | None:
@@ -119,20 +120,32 @@ def effective_cost(costs: tuple[SkuCost, ...], sku: str, on: date) -> int | None
     return max(candidates, key=lambda c: c.effective_from).unit_cost
 
 
-def cogs_for(lines: tuple[OrderLine, ...], costs: tuple[SkuCost, ...]) -> tuple[int | None, tuple[ImportProblem, ...]]:
-    """Σ quantity × SkuCost effective on ordered_at. Any unknown SKU → (None, problems)."""
+def effective_unit_cost(costs: tuple[SkuCost, ...], maps: dict[str, ListingMap], sku: str, on: date) -> int | None:
+    """Cost of ONE sold piece of a listing (ADR-0006): via its BaseProduct × units, else the ProductKey's own cost."""
+    m = maps.get(sku)
+    if m is not None:
+        base = effective_cost(costs, m.base_product, on)
+        return None if base is None else base * m.units_per_listing
+    return effective_cost(costs, sku, on)
+
+
+def cogs_for(lines: tuple[OrderLine, ...], costs: tuple[SkuCost, ...], maps: dict[str, ListingMap] | None = None) -> tuple[int | None, tuple[ImportProblem, ...]]:
+    """Σ quantity × unit cost effective on ordered_at. Any unknown cost → (None, problems)."""
+    maps = maps or {}
     total = 0
     problems: list[ImportProblem] = []
     for line in lines:
-        unit = effective_cost(costs, line.sku, line.ordered_at)
+        unit = effective_unit_cost(costs, maps, line.sku, line.ordered_at)
         if unit is None:
-            problems.append(ImportProblem(f"ไม่มีต้นทุนของ SKU {line.sku} ณ วันที่ {line.ordered_at:%d/%m/%Y}", None, "sku"))
+            what = f"สินค้าฐาน {maps[line.sku].base_product}" if line.sku in maps else f"รายการ {line.sku}"
+            problems.append(ImportProblem(f"ไม่มีต้นทุนของ{what} ณ วันที่ {line.ordered_at:%d/%m/%Y}", None, "sku"))
             continue
         total += unit * line.quantity
     return (None if problems else total, tuple(problems))
 
 
-def split_order_lines(lines: tuple[OrderLine, ...], net_received: int, allocated_expense: int, costs: tuple[SkuCost, ...]) -> tuple[OrderLineProfit, ...]:
+def split_order_lines(lines: tuple[OrderLine, ...], net_received: int, allocated_expense: int, costs: tuple[SkuCost, ...],
+                      maps: dict[str, ListingMap] | None = None) -> tuple[OrderLineProfit, ...]:
     """ADR-0004: weights = line_amount, else quantity. Shares sum exactly to the order figures."""
     weights = {i: ln.line_amount for i, ln in enumerate(lines)}
     if not any(w > 0 for w in weights.values()):
@@ -141,7 +154,7 @@ def split_order_lines(lines: tuple[OrderLine, ...], net_received: int, allocated
     exp_share = split_proportionally(allocated_expense, weights)
     out = []
     for i, ln in enumerate(lines):
-        unit = effective_cost(costs, ln.sku, ln.ordered_at)
+        unit = effective_unit_cost(costs, maps or {}, ln.sku, ln.ordered_at)
         out.append(OrderLineProfit(ln.sku, ln.product_name, ln.quantity, net_share.get(i, 0), None if unit is None else unit * ln.quantity, exp_share.get(i, 0)))
     return tuple(out)
 
@@ -159,7 +172,9 @@ def build_report(
     sku_costs: tuple[SkuCost, ...],
     expenses: tuple[Expense, ...],
     platform: Platform | None = None,
+    listing_maps: tuple[ListingMap, ...] = (),
 ) -> ProfitReport:
+    maps = {m.sku: m for m in listing_maps}
     settled = [s for s in settlements if in_period(s.settled_at, period_start, period_end) and (platform is None or s.platform == platform)]
     period_expenses = [e for e in expenses if in_period(e.incurred_on, period_start, period_end)]
     lines_by_order: dict[tuple[str, str], list[OrderLine]] = defaultdict(list)
@@ -202,7 +217,7 @@ def build_report(
         key = (s.platform.value, s.order_id)
         lines = tuple(lines_by_order.get(key, ()))
         if lines:
-            cogs, probs = cogs_for(lines, sku_costs)
+            cogs, probs = cogs_for(lines, sku_costs, maps)
         else:
             cogs, probs = None, (ImportProblem(f"ออเดอร์ {s.order_id} ยังไม่มีรายการสินค้า (อัพโหลดรายงานคำสั่งซื้อ)", None, "order_id"),)
         problems.extend(probs)
@@ -218,7 +233,7 @@ def build_report(
                 net_received=s.net_received, cogs=cogs,
                 allocated_expense=alloc_by_order.get(key, 0), fee_total=_fee_total(s),
                 quantity=sum(ln.quantity for ln in lines),
-                lines=split_order_lines(lines, s.net_received, alloc_by_order.get(key, 0), sku_costs),
+                lines=split_order_lines(lines, s.net_received, alloc_by_order.get(key, 0), sku_costs, maps),
             )
         )
 
@@ -245,6 +260,22 @@ def build_report(
             acc[4] += ln.cogs or 0
             acc[5] += ln.allocated_expense
     by_product = {sku: ProductPnl(sku, a[0], len(a[1]), a[2], a[3], a[4], a[5]) for sku, a in prod.items()}
+    # --- per BaseProduct: quantity in base units (ADR-0006) ---
+    base: dict[str, list] = {}
+    for o in orders:
+        if o.cogs is None:
+            continue
+        for ln in o.lines:
+            m = maps.get(ln.sku)
+            if m is None:
+                continue
+            acc = base.setdefault(m.base_product, [m.base_product, set(), 0, 0, 0, 0])
+            acc[1].add(o.order_id)
+            acc[2] += ln.quantity * m.units_per_listing
+            acc[3] += ln.net_received
+            acc[4] += ln.cogs or 0
+            acc[5] += ln.allocated_expense
+    by_base_product = {n: ProductPnl(n, a[0], len(a[1]), a[2], a[3], a[4], a[5]) for n, a in base.items()}
 
     by_platform = {
         p: PeriodPnl(p, count_by_platform[p], net_by_platform[p], cogs_by_platform[p], dict(exp_by_platform.get(p, {})), incomplete_by_platform[p])
@@ -266,4 +297,5 @@ def build_report(
         tuple(sorted(pending, key=lambda p: p.ordered_at, reverse=True)),
         tuple(problems),
         dict(sorted(by_product.items(), key=lambda kv: kv[1].net_profit, reverse=True)),
+        dict(sorted(by_base_product.items(), key=lambda kv: kv[1].net_profit, reverse=True)),
     )
