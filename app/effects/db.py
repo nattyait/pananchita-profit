@@ -378,6 +378,22 @@ def all_order_line_skus(s: Session) -> frozenset[str]:
     return frozenset(s.scalars(select(OrderLineRow.sku).distinct()))
 
 
+def merge_base_product(s: Session, *, source: str, target: str, move_costs: bool) -> None:
+    """Point the source's listings at target, move or drop the source's SkuCost rows, then remove the source."""
+    for m in s.scalars(select(ListingMapRow).where(ListingMapRow.base_product == source)):
+        m.base_product = target
+    for c in s.scalars(select(SkuCostRow).where(SkuCostRow.sku == source)):
+        if move_costs:
+            c.sku = target
+            if c.product_name == source:
+                c.product_name = target
+        else:
+            s.delete(c)
+    for row in s.scalars(select(BaseProductRow).where(BaseProductRow.name == source)):
+        s.delete(row)
+    s.flush()
+
+
 def delete_base_product(s: Session, name: str) -> None:
     """Remove a BaseProduct and the SkuCost rows keyed by its name."""
     for row in s.scalars(select(SkuCostRow).where(SkuCostRow.sku == name)):

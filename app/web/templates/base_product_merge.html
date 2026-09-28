@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block title %}รวมสินค้าฐาน{% endblock %}
+{% block body %}
+<h1>รวมสินค้าฐาน</h1>
+<p class="hint">รายการขายทั้งหมดที่ผูกกับ <b>{{ source }}</b> จะย้ายไปผูกกับสินค้าฐานปลายทาง จำนวนหน่วยของแต่ละรายการเท่าเดิม
+แล้ว "{{ source }}" จะถูกลบ ถ้าปลายทางยังไม่มีราคาทุน ราคาทุนของ "{{ source }}" จะย้ายไปด้วย</p>
+
+{% if status == 'same' %}<div class="notice bad">ปลายทางต้องเป็นสินค้าฐานตัวอื่น</div>
+{% elif status == 'unknown' %}<div class="notice bad">ไม่พบสินค้าฐานนี้ ลองเลือกจากรายการ</div>
+{% elif status == 'used_as_product_key' %}<div class="notice bad">รวมไม่ได้ เพราะมีออเดอร์ที่ใช้ชื่อ "{{ source }}" เป็นรหัสสินค้าโดยตรง</div>
+{% endif %}
+
+<form class="inline" method="get" action="/base-products/merge">
+  <input type="hidden" name="source" value="{{ source }}">
+  <label>รวมเข้ากับ <input name="target" required list="base-names" value="{{ target }}" style="min-width:22rem" autofocus></label>
+  <datalist id="base-names">{% for b in base_products if b.name != source %}<option value="{{ b.name }}">{{ b.unit_label }}</option>{% endfor %}</datalist>
+  <button type="submit">ดูก่อนรวม</button>
+  <a class="quiet" href="/sku-costs">ยกเลิก</a>
+</form>
+
+{% if preview and not preview.refusal %}
+<table class="grid">
+  <tr><th></th><th>สินค้าฐาน</th><th class="n">ราคาทุนล่าสุด / หน่วย</th></tr>
+  <tr><td>ตัวที่จะถูกรวม</td><td>{{ source }}</td><td class="n">{{ preview.source_unit_cost|baht if preview.source_unit_cost is not none else 'ยังไม่ใส่' }}</td></tr>
+  <tr><td>ปลายทาง</td><td>{{ target }}</td><td class="n">{{ preview.target_unit_cost|baht if preview.target_unit_cost is not none else 'ยังไม่ใส่' }}</td></tr>
+</table>
+<p>จะย้าย {{ preview.listing_count }} รายการขาย</p>
+{% if preview.changes_cogs %}
+<div class="notice bad"><strong>ราคาทุนไม่เท่ากัน</strong> — หลังรวม ออเดอร์ของ "{{ source }}" ทั้งหมด รวมออเดอร์เก่า จะคิดต้นทุนด้วยราคาของ "{{ target }}"
+กำไรย้อนหลังจะเปลี่ยน ถ้าราคาของปลายทางไม่ถูก ให้แก้ราคาปลายทางก่อนแล้วค่อยรวม</div>
+{% endif %}
+<form method="post" action="/base-products/merge" onsubmit='return confirm({{ ("รวม " ~ source ~ " เข้ากับ " ~ target ~ "?")|tojson }})'>
+  <input type="hidden" name="source" value="{{ source }}"><input type="hidden" name="target" value="{{ target }}">
+  {% if preview.changes_cogs %}<input type="hidden" name="confirmed" value="1">{% endif %}
+  <button type="submit">{{ 'ยืนยันรวม ทั้งที่ราคาทุนไม่เท่ากัน' if preview.changes_cogs else 'รวม' }}</button>
+</form>
+{% elif preview and preview.refusal and not status %}
+<div class="notice bad">{% if preview.refusal == 'same' %}ปลายทางต้องเป็นสินค้าฐานตัวอื่น{% elif preview.refusal == 'unknown' %}ไม่พบสินค้าฐานนี้ ลองเลือกจากรายการ{% else %}รวมไม่ได้ เพราะมีออเดอร์ที่ใช้ชื่อ "{{ source }}" เป็นรหัสสินค้าโดยตรง{% endif %}</div>
+{% endif %}
+{% endblock %}

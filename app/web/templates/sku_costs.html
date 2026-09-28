@@ -24,6 +24,7 @@
 
 {% if rename %}{% set rb = (base_products|selectattr('name', 'equalto', rename)|first) %}
 <h2 id="rename-form">แก้ชื่อ/หน่วยสินค้าฐาน</h2>
+{% if taken %}<div class="notice bad">ใช้ชื่อ "{{ taken }}" ไม่ได้ เพราะมีราคาทุนในชื่อนี้อยู่แล้วในตาราง "ราคาทุนที่ใส่แล้ว" (ไม่มีสินค้าฐานคู่กัน) ลบแถวนั้นก่อน หรือใช้ชื่ออื่น</div>{% endif %}
 <form class="inline" method="post" action="/base-products/rename">
   <input type="hidden" name="old" value="{{ rename }}">
   <label>ชื่อสินค้าฐาน <input name="new" required value="{{ rename }}" style="min-width:22rem" autofocus></label>
@@ -75,7 +76,7 @@
     <small>× {{ p.units_per_listing }} {{ b.unit_label }}{% if uc is not none %} = ต้นทุน {{ (uc * p.units_per_listing)|baht }} / ชิ้น{% endif %}</small>
     <form method="post" action="/listing-maps/delete" style="display:inline"><input type="hidden" name="sku" value="{{ p.sku }}"><button class="danger" type="submit" title="ยกเลิกการผูก">✕</button></form></div>{% else %}—{% endfor %}</td>
   <td class="n">{% set ns = namespace(u=0) %}{% for p in ls %}{% set ns.u = ns.u + p.quantity * p.units_per_listing %}{% endfor %}{{ ns.u }}</td>
-  <td class="actions"><a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ 'เปลี่ยนราคาทุน' if uc is not none else 'ใส่ราคาทุน' }}</a> · <a href="/sku-costs?rename={{ b.name|urlencode }}#rename-form">แก้ชื่อ/หน่วย</a>
+  <td class="actions"><a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ 'เปลี่ยนราคาทุน' if uc is not none else 'ใส่ราคาทุน' }}</a> · <a href="/sku-costs?rename={{ b.name|urlencode }}#rename-form">แก้ชื่อ/หน่วย</a> · <a href="/base-products/merge?source={{ b.name|urlencode }}">รวมเข้ากับ…</a>
     {% if b.name in deletable %}<form method="post" action="/base-products/delete" style="display:inline" onsubmit="return confirm('ลบสินค้าฐานนี้? ไม่มีรายการขายผูกอยู่ จึงไม่กระทบต้นทุนออเดอร์ไหน')"><input type="hidden" name="name" value="{{ b.name }}"><button class="danger" type="submit">ลบ</button></form>{% endif %}</td></tr>
   {% endfor %}
 </table>

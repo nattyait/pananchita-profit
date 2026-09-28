@@ -23,7 +23,11 @@ Status: Accepted · Date: 2026-09-28
    ListingMapSuggestion: BaseProduct จากรายการที่ผูกแล้วซึ่ง `title_core` ตรงกัน (เลือกตัวที่ผูกบ่อยสุด) + จำนวนหน่วยเดาจากข้อความโปร
    (ตัวเลือกก่อน แล้วค่อยชื่อ) **ไม่ผูกเองอัตโนมัติ** เพราะจำนวนหน่วยเปลี่ยนตามโปร ถ้าผูกผิดต้นทุนจะผิดเงียบ ๆ; คนยืนยันแล้วกดบันทึกครั้งเดียว
    กฎอยู่ใน `domain/listing_suggestions.py`; use case `orchestration/listing_maps.py::BulkMapListings` (เพิ่ม 2026-09-28)
-   ทางเลือกที่ยังไม่ทำ: อ่าน "SKU ID" ของ TikTok ซึ่งไม่เปลี่ยนตามชื่อ (ช่วยเฉพาะ TikTok และต้องเปลี่ยนนิยาม ProductKey → ต้องมี ADR ใหม่)
+9. รวมสินค้าฐาน (source → target): ListingMap ของ source ย้ายไป target (units เท่าเดิม), SkuCost ของ source ย้ายไปถ้า target ยังไม่มีราคา
+   ไม่งั้นลบทิ้ง, แล้วลบ source ถ้าราคาทั้งสองต่างกันในวันใดวันหนึ่ง COGS ย้อนหลังจะเปลี่ยน → ต้องกดยืนยันแยก
+   ห้ามรวมถ้ามี OrderLine ที่ไม่ได้ map ใช้ชื่อ source เป็น ProductKey ตรง ๆ; แก้ชื่อไปเป็นชื่อที่มีอยู่แล้ว = ไปหน้ารวม
+   กฎอยู่ใน `domain/base_products.py` (`merge_refusal`, `merge_changes_cogs`); use case `MergeBaseProducts`, `RenameBaseProduct` (เพิ่ม 2026-09-28)
+   ทางเลือกที่ยังไม่ทำ (ข้อ 8): อ่าน "SKU ID" ของ TikTok ซึ่งไม่เปลี่ยนตามชื่อ (ช่วยเฉพาะ TikTok และต้องเปลี่ยนนิยาม ProductKey → ต้องมี ADR ใหม่)
 
 ## Consequences
 - (+) ใส่ต้นทุนครั้งเดียวต่อสินค้าจริง; รายการขายใหม่แค่ผูกเข้าสินค้าฐาน

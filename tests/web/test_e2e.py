@@ -57,6 +57,39 @@ def test_bulk_mapping_suggests_base_product_for_renamed_promo_listing(client):
     assert "× 5 กล่อง" in costs
 
 
+def test_merge_base_products_and_rename_into_existing_name(client):
+    head = ["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"]
+    ords = _xlsx([head, ["A1", "2026-08-10", "[โปร2แถม2] กาแฟ", "", 1], ["A2", "2026-08-10", "[3ถุง] น้ำยา", "", 1],
+                  ["A3", "2026-08-10", "[1ลัง] น้ำยา", "", 1]])
+    client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"}, files={"file": ("o.xlsx", ords)})
+    for sku, base, units in (("[โปร2แถม2] กาแฟ", "[โปร2แถม2] กาแฟ", 4), ("[3ถุง] น้ำยา", "[3ถุง] น้ำยา", 3), ("[1ลัง] น้ำยา", "น้ำยา", 6)):
+        client.post("/listing-maps", data={"sku": sku, "base_product": base, "unit_label": "ถุง", "units_per_listing": str(units)})
+    client.post("/sku-costs", data={"sku": "[3ถุง] น้ำยา", "unit_cost": "97", "effective_from": "2026-05-01"})
+    client.post("/sku-costs", data={"sku": "น้ำยา", "unit_cost": "96", "effective_from": "2026-05-01"})
+    assert 'href="/base-products/merge?source=' in client.get("/sku-costs").text
+    # rename to a name nobody uses: plain rename
+    client.post("/base-products/rename", data={"old": "[โปร2แถม2] กาแฟ", "new": "กาแฟ", "unit_label": "กล่อง"})
+    assert "× 4 กล่อง" in client.get("/sku-costs").text
+    # rename onto an existing base product → goes to the merge page, which warns because 97 ≠ 96
+    r = client.post("/base-products/rename", data={"old": "[3ถุง] น้ำยา", "new": "น้ำยา", "unit_label": "ถุง"})
+    assert "รวมสินค้าฐาน" in r.text and "ราคาทุนไม่เท่ากัน" in r.text and "97.00" in r.text and "96.00" in r.text
+    r = client.post("/base-products/merge", data={"source": "[3ถุง] น้ำยา", "target": "น้ำยา"})  # not confirmed → nothing happens
+    assert "ราคาทุนไม่เท่ากัน" in r.text
+    client.post("/base-products/merge", data={"source": "[3ถุง] น้ำยา", "target": "น้ำยา", "confirmed": "1"})
+    costs = client.get("/sku-costs").text
+    assert "[3ถุง] น้ำยา<div" not in costs and "= ต้นทุน 288.00 / ชิ้น" in costs and "= ต้นทุน 576.00 / ชิ้น" in costs
+    # renaming onto a name that only has orphan cost rows gives a message, not a server error
+    client.post("/sku-costs", data={"sku": "ชื่อที่มีแต่ราคา", "unit_cost": "1", "effective_from": "2026-05-01"})
+    r = client.post("/base-products/rename", data={"old": "กาแฟ", "new": "ชื่อที่มีแต่ราคา", "unit_label": ""})
+    assert r.status_code == 200 and "ใช้ชื่อ" in r.text and "ไม่ได้" in r.text
+    # a name that an unmapped order uses as its own ProductKey cannot be merged away
+    client.post("/listing-maps/delete", data={"sku": "[1ลัง] น้ำยา"})
+    client.post("/listing-maps", data={"sku": "[โปร2แถม2] กาแฟ", "base_product": "[1ลัง] น้ำยา", "units_per_listing": "1"})
+    client.post("/listing-maps", data={"sku": "[โปร2แถม2] กาแฟ", "base_product": "กาแฟ", "units_per_listing": "4"})
+    r = client.post("/base-products/merge", data={"source": "[1ลัง] น้ำยา", "target": "กาแฟ", "confirmed": "1"})
+    assert "เป็นรหัสสินค้าโดยตรง" in r.text
+
+
 def test_upload_then_dashboard_shows_profit(client):
     inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["A1", "2026-09-15", 285]])
     r = client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("inc.xlsx", inc)}, follow_redirects=False)
