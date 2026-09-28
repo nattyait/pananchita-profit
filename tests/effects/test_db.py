@@ -35,4 +35,5 @@ def test_order_lines_roundtrip_and_skus_without_cost():
     db.insert_order_lines(s, u.id, (OrderLine(Platform.SHOPEE, "A", 1, "PNC-001", 2, date(2026, 9, 1), "ครีม"),))
     db.insert_sku_cost(s, sku="PNC-002", product_name="", unit_cost=100, effective_from=date(2026, 1, 1))
     assert db.all_order_lines(s)[0].sku == "PNC-001"
-    assert db.known_skus_without_cost(s) == [("PNC-001", "ครีม")]
+    seen = db.products_seen(s)
+    assert [(p.sku, p.product_name, p.quantity, p.order_count, p.has_cost) for p in seen] == [("PNC-001", "ครีม", 2, 1, False)]
