@@ -45,7 +45,10 @@
 {% if report.problems %}
 <div class="notice">
   <strong>{{ report.problems|length }} รายการที่คิดต้นทุนไม่ได้</strong> — ออเดอร์เหล่านี้แสดงยอดรับจริงแต่ไม่แสดงกำไร จนกว่าจะ<a href="/sku-costs">ใส่ต้นทุน SKU</a> หรือ<a href="/upload">อัพโหลดรายงานคำสั่งซื้อ</a>
-  <ul class="problems">{% for p in report.problems[:8] %}<li>{{ p.message }}</li>{% endfor %}{% if report.problems|length > 8 %}<li>… และอีก {{ report.problems|length - 8 }} รายการ</li>{% endif %}</ul>
+  <ul class="problems">{% for p in report.problems[:8] %}<li>{{ p.message }}
+    {% if p.field == 'sku' and p.key %} · <a href="/sku-costs?map={{ p.key|urlencode }}#map-form">ผูกสินค้าฐาน / ใส่ต้นทุน</a>
+    {% elif p.field == 'base_product' and p.key %} · <a href="/sku-costs?sku={{ p.key|urlencode }}#cost-form">ใส่ราคาทุน</a>
+    {% elif p.field == 'order_id' %} · <a href="/upload">อัพโหลดรายงานคำสั่งซื้อ</a>{% endif %}</li>{% endfor %}{% if report.problems|length > 8 %}<li>… และอีก {{ report.problems|length - 8 }} รายการ</li>{% endif %}</ul>
 </div>
 {% endif %}
 

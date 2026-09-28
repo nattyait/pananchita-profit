@@ -182,3 +182,12 @@ def test_fully_returned_order_that_still_moved_money_keeps_its_numbers():
 def test_order_with_pieces_or_without_lines_is_not_a_return():
     assert not _order(2, 28500, 0).fully_returned
     assert not _order(0, 0, 0, lines=0).fully_returned  # no order lines yet: that is a problem, not a return
+
+
+def test_missing_cost_problem_names_what_to_fix():
+    from app.domain.types import ListingMap
+    d = date(2026, 8, 6)
+    lines = (OrderLine(Platform.TIKTOK, "O", 1, "กาแฟ | 3แถม2", 1, d), OrderLine(Platform.TIKTOK, "O", 2, "โลชั่น | 1หลอด", 1, d))
+    maps = {"โลชั่น | 1หลอด": ListingMap("โลชั่น | 1หลอด", "LOVE STORY", 1)}
+    _, problems = cogs_for(lines, (), maps)
+    assert [(p.field, p.key) for p in problems] == [("sku", "กาแฟ | 3แถม2"), ("base_product", "LOVE STORY")]
