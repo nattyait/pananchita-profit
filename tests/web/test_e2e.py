@@ -35,6 +35,8 @@ def test_upload_then_dashboard_shows_profit(client):
     assert r.status_code == 303
     ords = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"], ["A1", "2026-09-10", "ครีม", "PNC-001", 2]])
     client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"}, files={"file": ("ord.xlsx", ords)})
+    costs = client.get("/sku-costs").text
+    assert "ยังไม่มีต้นทุน" in costs and "ใส่ต้นทุน" in costs and 'value="PNC-001"' in client.get("/sku-costs", params={"sku": "PNC-001"}).text
     client.post("/sku-costs", data={"sku": "PNC-001", "product_name": "ครีม", "unit_cost": "50", "effective_from": "2026-01-01"})
     client.post("/expenses", data={"kind": "ads", "platform": "shopee", "amount": "35", "incurred_on": "2026-09-20", "note": ""})
     page = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
