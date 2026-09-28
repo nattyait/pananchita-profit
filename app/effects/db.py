@@ -335,6 +335,21 @@ def upsert_listing_map(s: Session, *, sku: str, base_product: str, units_per_lis
     return row
 
 
+def rename_base_product(s: Session, *, old: str, new: str, unit_label: str) -> None:
+    """Rename a base product everywhere it is referenced (maps + cost rows keyed by its name)."""
+    row = s.scalar(select(BaseProductRow).where(BaseProductRow.name == old))
+    if row is None:
+        return
+    row.name, row.unit_label = new, unit_label or row.unit_label
+    for m in s.scalars(select(ListingMapRow).where(ListingMapRow.base_product == old)):
+        m.base_product = new
+    for c in s.scalars(select(SkuCostRow).where(SkuCostRow.sku == old)):
+        c.sku = new
+        if c.product_name == old:
+            c.product_name = new
+    s.flush()
+
+
 def delete_listing_map(s: Session, sku: str) -> None:
     row = s.scalar(select(ListingMapRow).where(ListingMapRow.sku == sku))
     if row is not None:
