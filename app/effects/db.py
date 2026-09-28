@@ -292,6 +292,13 @@ class ProductSeen:
     unit_price: int = 0
 
 
+def _variant_from_key(sku: str, product_name: str) -> str:
+    """Rows imported before variant_name existed: the variation is still inside the ProductKey 'name | variant'."""
+    if product_name and sku.startswith(product_name + " | "):
+        return sku[len(product_name) + 3 :]
+    return ""
+
+
 def products_seen(s: Session) -> list[ProductSeen]:
     have = {r.sku for r in s.scalars(select(SkuCostRow))}
     maps = {r.sku: r for r in s.scalars(select(ListingMapRow))}
@@ -299,7 +306,8 @@ def products_seen(s: Session) -> list[ProductSeen]:
     q = _latest_upload_per_key(s, m, [m.platform, m.order_id, m.line_no]).where(m.cancelled.is_(False))
     acc: dict[str, list] = {}
     for r in s.scalars(q):
-        a = acc.setdefault(r.sku, [r.platform, r.product_name, r.variant_name, 0, set(), r.ordered_at])
+        variant = r.variant_name or _variant_from_key(r.sku, r.product_name)
+        a = acc.setdefault(r.sku, [r.platform, r.product_name, variant, 0, set(), r.ordered_at])
         a[3] += r.quantity
         a[4].add(r.order_id)
         a[5] = max(a[5], r.ordered_at)

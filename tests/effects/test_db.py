@@ -37,6 +37,13 @@ def test_update_and_delete_sku_cost():
     assert db.get_sku_cost(s, row.id) is None and db.all_sku_costs(s) == ()
 
 
+def test_variant_is_derived_from_key_for_rows_without_variant_name():
+    s = _session()
+    u = db.insert_upload(s, platform="tiktok", kind="orders", filename="o.csv", sha256="8", uploaded_by="เก๋", uploaded_at=datetime(2026, 9, 1))
+    db.insert_order_lines(s, u.id, (OrderLine(Platform.TIKTOK, "T", 1, "น้ำยา | 3 ถุง", 1, date(2026, 9, 1), "น้ำยา"),))  # old row: no variant_name
+    assert db.products_seen(s)[0].variant_name == "3 ถุง"
+
+
 def test_listing_map_marks_listing_covered_when_base_product_has_cost():
     s = _session()
     u = db.insert_upload(s, platform="tiktok", kind="orders", filename="o.csv", sha256="9", uploaded_by="เก๋", uploaded_at=datetime(2026, 9, 1))
