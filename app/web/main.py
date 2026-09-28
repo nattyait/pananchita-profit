@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -90,8 +91,31 @@ def download(s: Db, upload_id: int):
 @app.get("/sku-costs", response_class=HTMLResponse)
 def sku_costs(request: Request, s: Db):
     seen = db.products_seen(s)
+    base_products = db.list_base_products(s)
+    have = {r.sku for r in db.list_sku_cost_rows(s)}
     return _render(request, "sku_costs.html", rows=db.list_sku_cost_rows(s), missing=[p for p in seen if not p.has_cost],
-                   seen_by_sku={p.sku: p for p in seen}, today=date.today(), prefill=request.query_params.get("sku", ""))
+                   seen_by_sku={p.sku: p for p in seen}, today=date.today(), prefill=request.query_params.get("sku", ""),
+                   base_products=base_products, base_without_cost=[b for b in base_products if b.name not in have],
+                   listings_by_base={b.name: [p for p in seen if p.base_product == b.name] for b in base_products},
+                   map_sku=request.query_params.get("map", ""))
+
+
+@app.post("/listing-maps")
+def save_listing_map(s: Db, sku: Annotated[str, Form()], base_product: Annotated[str, Form()], units_per_listing: Annotated[int, Form()],
+                     unit_label: Annotated[str, Form()] = "", unit_price: Annotated[str, Form()] = ""):
+    name = base_product.strip()
+    db.upsert_base_product(s, name=name, unit_label=unit_label.strip())
+    db.upsert_listing_map(s, sku=sku.strip(), base_product=name, units_per_listing=max(units_per_listing, 1),
+                          unit_price=parse_money(unit_price) if unit_price.strip() else 0)
+    s.commit()
+    return RedirectResponse(f"/sku-costs?sku={quote(name)}#cost-form" if name not in {r.sku for r in db.list_sku_cost_rows(s)} else "/sku-costs", status_code=303)
+
+
+@app.post("/listing-maps/delete")
+def remove_listing_map(s: Db, sku: Annotated[str, Form()]):
+    db.delete_listing_map(s, sku.strip())
+    s.commit()
+    return RedirectResponse("/sku-costs", status_code=303)
 
 
 @app.post("/sku-costs")
