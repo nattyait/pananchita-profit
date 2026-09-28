@@ -6,7 +6,7 @@
   <tr><th>เมื่อ</th><th>ผู้อัพโหลด</th><th>แพลตฟอร์ม</th><th>ชนิด</th><th>ไฟล์</th><th>ผล</th><th class="n">แถวที่นำเข้า</th><th>ปัญหา</th></tr>
   {% for u in uploads %}
   <tr class="{% if u.id == highlight %}highlight{% endif %}">
-    <td>{{ u.uploaded_at.strftime('%d/%m/%y %H:%M') }}</td><td>{{ u.uploaded_by }}</td><td>{{ u.platform }}</td>
+    <td>{{ (u.uploaded_at|shop_time).strftime('%d/%m/%y %H:%M') }}</td><td>{{ u.uploaded_by }}</td><td>{{ u.platform }}</td>
     <td>{{ dict(KINDS)[u.kind] }}</td><td><a href="/uploads/{{ u.id }}/download">{{ u.filename }}</a></td>
     <td><span class="tag {{ u.status }}">{{ {'imported':'นำเข้าแล้ว','failed':'ล้มเหลว','received':'รับไฟล์แล้ว'}[u.status] }}</span></td>
     <td class="n">{{ u.row_count }}</td>
