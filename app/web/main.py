@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.domain.money import baht, parse_money
 from app.domain.types import SHARED, ExpenseKind, Platform, ReportKind
 from app.effects import db, file_store
+from app.orchestration.base_products import DeleteUnusedBaseProduct
 from app.orchestration.import_report import ImportReport
 from app.orchestration.profit_report import BuildProfitReport
 from app.web import settings
@@ -98,6 +99,7 @@ def sku_costs(request: Request, s: Db):
                    base_products=base_products, base_without_cost=[b for b in base_products if b.name not in have],
                    listings_by_base={b.name: [p for p in seen if p.base_product == b.name] for b in base_products},
                    map_sku=request.query_params.get("map", ""), rename=request.query_params.get("rename", ""),
+                   deletable=DeleteUnusedBaseProduct(s).deletable(),
                    latest_cost={r.sku: r.unit_cost for r in sorted(db.list_sku_cost_rows(s), key=lambda r: r.effective_from)})
 
 
@@ -124,6 +126,12 @@ def update_listing_units(s: Db, sku: Annotated[str, Form()], base_product: Annot
 def rename_base_product(s: Db, old: Annotated[str, Form()], new: Annotated[str, Form()], unit_label: Annotated[str, Form()] = ""):
     db.rename_base_product(s, old=old.strip(), new=new.strip(), unit_label=unit_label.strip())
     s.commit()
+    return RedirectResponse("/sku-costs", status_code=303)
+
+
+@app.post("/base-products/delete")
+def remove_base_product(s: Db, name: Annotated[str, Form()]):
+    DeleteUnusedBaseProduct(s).run(name.strip())
     return RedirectResponse("/sku-costs", status_code=303)
 
 

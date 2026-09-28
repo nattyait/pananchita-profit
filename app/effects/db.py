@@ -372,6 +372,20 @@ def delete_listing_map(s: Session, sku: str) -> None:
         s.flush()
 
 
+def all_order_line_skus(s: Session) -> frozenset[str]:
+    """Every ProductKey ever imported, cancelled lines included."""
+    return frozenset(s.scalars(select(OrderLineRow.sku).distinct()))
+
+
+def delete_base_product(s: Session, name: str) -> None:
+    """Remove a BaseProduct and the SkuCost rows keyed by its name."""
+    for row in s.scalars(select(SkuCostRow).where(SkuCostRow.sku == name)):
+        s.delete(row)
+    for row in s.scalars(select(BaseProductRow).where(BaseProductRow.name == name)):
+        s.delete(row)
+    s.flush()
+
+
 # ---------- expenses ----------
 def all_expenses(s: Session) -> tuple[Expense, ...]:
     return tuple(Expense(ExpenseKind(r.kind), r.platform, r.amount, r.incurred_on, r.note, r.id, r.source_ref) for r in s.scalars(select(ExpenseRow)))
