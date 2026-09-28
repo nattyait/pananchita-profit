@@ -60,6 +60,15 @@ def test_upload_then_dashboard_shows_profit(client):
     client.post("/sku-costs", data={"sku": "ครีมฐาน", "product_name": "ครีมฐาน", "unit_cost": "20", "effective_from": "2026-01-01"})
     page = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     assert "กำไรตามสินค้าฐาน" in page and "80.00" in page
+    import re
+
+    costs_html = client.get("/sku-costs").text
+    cost_id = re.search(r"ครีมฐาน</td>\s*<td class=\"n\">20.00</td>.*?/sku-costs/(\d+)/edit", costs_html, re.S).group(1)
+    edit_page = client.get(f"/sku-costs/{cost_id}/edit").text
+    assert "จำนวนหน่วยของแต่ละรายการขาย" in edit_page and 'value="2"' in edit_page
+    client.post("/listing-maps/units", data={"sku": "PNC-001", "base_product": "ครีมฐาน", "units_per_listing": "3", "back": f"/sku-costs/{cost_id}/edit"})
+    assert "60.00" in client.get(f"/sku-costs/{cost_id}/edit").text  # 3 boxes × 20
+    client.post("/listing-maps/units", data={"sku": "PNC-001", "base_product": "ครีมฐาน", "units_per_listing": "2"})
     client.post("/base-products/rename", data={"old": "ครีมฐาน", "new": "ครีม", "unit_label": "หลอด"})
     costs_page = client.get("/sku-costs").text
     assert "ครีม" in costs_page and "หลอด" in costs_page and "= ต้นทุน 40.00 / ชิ้น" in costs_page

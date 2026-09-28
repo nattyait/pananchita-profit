@@ -112,6 +112,14 @@ def save_listing_map(s: Db, sku: Annotated[str, Form()], base_product: Annotated
     return RedirectResponse(f"/sku-costs?sku={quote(name)}#cost-form" if name not in {r.sku for r in db.list_sku_cost_rows(s)} else "/sku-costs", status_code=303)
 
 
+@app.post("/listing-maps/units")
+def update_listing_units(s: Db, sku: Annotated[str, Form()], base_product: Annotated[str, Form()], units_per_listing: Annotated[int, Form()],
+                         back: Annotated[str, Form()] = "/sku-costs"):
+    db.upsert_listing_map(s, sku=sku.strip(), base_product=base_product.strip(), units_per_listing=max(units_per_listing, 1), unit_price=0)
+    s.commit()
+    return RedirectResponse(back if back.startswith("/") else "/sku-costs", status_code=303)
+
+
 @app.post("/base-products/rename")
 def rename_base_product(s: Db, old: Annotated[str, Form()], new: Annotated[str, Form()], unit_label: Annotated[str, Form()] = ""):
     db.rename_base_product(s, old=old.strip(), new=new.strip(), unit_label=unit_label.strip())
@@ -138,7 +146,9 @@ def edit_sku_cost_form(request: Request, s: Db, cost_id: int, error: str | None 
     row = db.get_sku_cost(s, cost_id)
     if row is None:
         return RedirectResponse("/sku-costs", status_code=303)
-    return _render(request, "sku_cost_edit.html", row=row, error=error)
+    base = next((b for b in db.list_base_products(s) if b.name == row.sku), None)
+    listings = [p for p in db.products_seen(s) if p.base_product == row.sku]
+    return _render(request, "sku_cost_edit.html", row=row, error=error, base=base, listings=listings)
 
 
 @app.post("/sku-costs/{cost_id}/edit")

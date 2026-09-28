@@ -1,15 +1,32 @@
-{% extends "base.html" %}{% block title %}แก้ไขต้นทุนสินค้า{% endblock %}
+{% extends "base.html" %}{% block title %}แก้ไขราคาทุน{% endblock %}
 {% block body %}
-<h1>แก้ไขต้นทุนสินค้า</h1>
-<p class="hint">การแก้ไขมีผลกับทุกออเดอร์ที่ใช้ต้นทุนแถวนี้ ถ้าต้นทุนเปลี่ยนตั้งแต่วันหนึ่งเป็นต้นไป ให้กลับไป<a href="/sku-costs">เพิ่มแถวใหม่</a>แทน เพื่อให้ออเดอร์เก่ายังใช้ต้นทุนเดิม</p>
-{% if error == 'duplicate' %}<div class="notice bad">บันทึกไม่ได้ — มีต้นทุนของรหัสสินค้านี้ในวันที่เดียวกันอยู่แล้ว เปลี่ยนวันที่ หรือไปแก้แถวนั้นแทน</div>
-{% elif error == 'money' %}<div class="notice bad">บันทึกไม่ได้ — ต้นทุนต้องเป็นตัวเลข เช่น 45.50</div>{% endif %}
+<h1>แก้ไขราคาทุน{% if base %} · {{ base.name }}{% endif %}</h1>
+{% if error == 'duplicate' %}<div class="notice bad">บันทึกไม่ได้ — มีราคาทุนของสินค้านี้ในวันที่เดียวกันอยู่แล้ว เปลี่ยนวันที่ หรือไปแก้แถวนั้นแทน</div>
+{% elif error == 'money' %}<div class="notice bad">บันทึกไม่ได้ — ราคาทุนต้องเป็นตัวเลข เช่น 45.50</div>{% endif %}
+
+<h2>ราคาทุนต่อ 1 {{ base.unit_label if base else 'หน่วย' }}</h2>
+<p class="hint">การแก้ไขมีผลกับทุกออเดอร์ที่ใช้ราคาทุนแถวนี้ ถ้าราคาทุนเปลี่ยนตั้งแต่วันหนึ่งเป็นต้นไป ให้กลับไป<a href="/sku-costs?sku={{ row.sku|urlencode }}#cost-form">เพิ่มแถวใหม่พร้อมวันที่ใหม่</a>แทน ออเดอร์เก่าจะยังใช้ราคาทุนเดิม</p>
 <form class="inline" method="post" action="/sku-costs/{{ row.id }}/edit">
-  <label>รหัสสินค้า (SKU หรือ ชื่อสินค้า | ตัวเลือก) <input name="sku" required value="{{ row.sku }}" style="min-width:26rem"></label>
-  <label>ชื่อสินค้า <input name="product_name" value="{{ row.product_name }}"></label>
-  <label>ต้นทุน/ชิ้น (บาท) <input name="unit_cost" required inputmode="decimal" value="{{ row.unit_cost|baht|replace(',', '') }}"></label>
+  <input type="hidden" name="sku" value="{{ row.sku }}">
+  <input type="hidden" name="product_name" value="{{ row.product_name }}">
+  <label>ราคาทุนของ 1 {{ base.unit_label if base else 'หน่วย' }} (บาท) <input name="unit_cost" required inputmode="decimal" value="{{ row.unit_cost|baht|replace(',', '') }}" autofocus></label>
   <label>มีผลตั้งแต่ <input type="date" name="effective_from" value="{{ row.effective_from }}" required></label>
-  <button type="submit">บันทึกการแก้ไข</button>
-  <a class="quiet" href="/sku-costs">ยกเลิก</a>
+  <button type="submit">บันทึกราคาทุน</button>
+  <a class="quiet" href="/sku-costs">กลับ</a>
 </form>
+
+{% if listings %}
+<h2>จำนวนหน่วยของแต่ละรายการขาย</h2>
+<p class="hint">ขาย 1 ชิ้นของรายการนี้ ลูกค้าได้กี่{{ base.unit_label if base else 'หน่วย' }} — ต้นทุนต่อชิ้น = จำนวนนี้ × ราคาทุนต่อ 1 {{ base.unit_label if base else 'หน่วย' }}</p>
+<table class="grid">
+  <tr><th>แพลตฟอร์ม</th><th>รายการขาย</th><th class="n">ชิ้นที่ขาย</th><th>1 ชิ้น = กี่{{ base.unit_label if base else 'หน่วย' }}</th><th class="n">ต้นทุน/ชิ้น</th></tr>
+  {% for p in listings %}
+  <tr><td>{{ p.platform }}</td><td>{{ p.product_name }}{% if p.variant_name %} — {{ p.variant_name }}{% endif %}</td><td class="n">{{ p.quantity }}</td>
+  <td><form method="post" action="/listing-maps/units" style="display:flex;gap:.5rem;align-items:center">
+    <input type="hidden" name="sku" value="{{ p.sku }}"><input type="hidden" name="base_product" value="{{ row.sku }}"><input type="hidden" name="back" value="/sku-costs/{{ row.id }}/edit">
+    <input name="units_per_listing" type="number" min="1" value="{{ p.units_per_listing }}" style="min-width:5rem;width:5rem"><button class="quiet" type="submit">บันทึก</button></form></td>
+  <td class="n">{{ (row.unit_cost * p.units_per_listing)|baht }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
 {% endblock %}
