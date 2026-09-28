@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.domain.money import baht, parse_money
 from app.domain.types import SHARED, ExpenseKind, Platform, ReportKind
 from app.effects import db, file_store
-from app.orchestration.base_products import DeleteUnusedBaseProduct
+from app.orchestration.base_products import DeleteUnusedBaseProduct, MergeBaseProducts, RenameBaseProduct
 from app.orchestration.import_report import ImportReport
 from app.orchestration.listing_maps import BulkMapListings
 from app.orchestration.profit_report import BuildProfitReport
@@ -139,9 +139,25 @@ def update_listing_units(s: Db, sku: Annotated[str, Form()], base_product: Annot
 
 @app.post("/base-products/rename")
 def rename_base_product(s: Db, old: Annotated[str, Form()], new: Annotated[str, Form()], unit_label: Annotated[str, Form()] = ""):
-    db.rename_base_product(s, old=old.strip(), new=new.strip(), unit_label=unit_label.strip())
-    s.commit()
+    result = RenameBaseProduct(s).run(old=old.strip(), new=new.strip(), unit_label=unit_label.strip())
+    if result == "merge":
+        return RedirectResponse(f"/base-products/merge?source={quote(old.strip())}&target={quote(new.strip())}", status_code=303)
     return RedirectResponse("/sku-costs", status_code=303)
+
+
+@app.get("/base-products/merge", response_class=HTMLResponse)
+def merge_base_product_form(request: Request, s: Db, source: str, target: str = "", status: str = ""):
+    preview = MergeBaseProducts(s).preview(source, target) if target else None
+    return _render(request, "base_product_merge.html", source=source, target=target, status=status, preview=preview,
+                   base_products=db.list_base_products(s))
+
+
+@app.post("/base-products/merge")
+def merge_base_product(s: Db, source: Annotated[str, Form()], target: Annotated[str, Form()], confirmed: Annotated[str, Form()] = ""):
+    result = MergeBaseProducts(s).run(source.strip(), target.strip(), confirmed=confirmed == "1")
+    if result == "merged":
+        return RedirectResponse("/sku-costs", status_code=303)
+    return RedirectResponse(f"/base-products/merge?source={quote(source.strip())}&target={quote(target.strip())}&status={result}", status_code=303)
 
 
 @app.post("/base-products/delete")

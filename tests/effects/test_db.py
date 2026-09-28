@@ -38,6 +38,21 @@ def test_delete_base_product_removes_it_and_its_cost_rows_only():
     assert [r.sku for r in db.list_sku_cost_rows(s)] == ["โลชั่น"]
 
 
+def test_merge_base_product_moves_listings_and_drops_or_moves_costs():
+    s = _session()
+    for name in ("กาแฟเก่า", "กาแฟ", "ไม่มีราคา"):
+        db.upsert_base_product(s, name=name, unit_label="กล่อง")
+    db.upsert_listing_map(s, sku="L1", base_product="กาแฟเก่า", units_per_listing=4, unit_price=0)
+    db.insert_sku_cost(s, sku="กาแฟเก่า", product_name="กาแฟเก่า", unit_cost=11000, effective_from=date(2026, 5, 1))
+    db.insert_sku_cost(s, sku="กาแฟ", product_name="กาแฟ", unit_cost=11000, effective_from=date(2026, 5, 1))
+    db.merge_base_product(s, source="กาแฟเก่า", target="กาแฟ", move_costs=False)
+    assert [(m.sku, m.base_product, m.units_per_listing) for m in db.all_listing_maps(s)] == [("L1", "กาแฟ", 4)]
+    assert sorted(r.sku for r in db.list_sku_cost_rows(s)) == ["กาแฟ"]
+    db.merge_base_product(s, source="กาแฟ", target="ไม่มีราคา", move_costs=True)
+    assert [r.sku for r in db.list_sku_cost_rows(s)] == ["ไม่มีราคา"]
+    assert [b.name for b in db.list_base_products(s)] == ["ไม่มีราคา"]
+
+
 def test_update_and_delete_sku_cost():
     s = _session()
     row = db.insert_sku_cost(s, sku="PNC-001", product_name="ครีม", unit_cost=100, effective_from=date(2026, 1, 1))
