@@ -47,6 +47,8 @@ Domain glossary: @CONTEXT.md · ADRs: docs/adr/
   latest cost. Why: cost changes must not rewrite last month's profit.
 - Shared expenses (staff, tax, misc without a platform) are allocated to platforms and orders by their share
   of net received in the period. The rule lives in ONE pure function (`domain/allocation.py`) — see ADR-0002.
+- A listing may map to a BaseProduct with a units multiplier (ADR-0006); cost lookup goes through ONE function,
+  `domain/profit.py::effective_unit_cost`. Never look up SkuCost by ProductKey directly anywhere else.
 - COGS is keyed by ProductKey (SKU, or "ชื่อสินค้า | ชื่อตัวเลือก" when the shop sets no SKU — ADR-0003). Never key by
   product name alone: two variants of one product have different costs.
 - Platform status words ("ยกเลิกแล้ว", "Cancelled") are translated to `OrderLine.cancelled` inside the platform parser,
