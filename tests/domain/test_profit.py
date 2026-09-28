@@ -141,3 +141,23 @@ def test_order_with_unknown_cost_has_no_line_profit_and_is_absent_from_products(
                      order_lines=(OrderLine(Platform.SHOPEE, "U", 1, "NOPE", 1, SEP1),), sku_costs=COSTS, expenses=())
     assert r.orders[0].lines[0].cogs is None and r.orders[0].lines[0].profit is None
     assert r.by_product == {}
+
+
+def test_listing_map_multiplies_base_product_cost_and_reports_base_units():
+    """ADR-0006: '[2แถม2] กาแฟ' = 4 boxes of base product 'กาแฟ TikTok' at 50/box → 200 per piece."""
+    from app.domain.types import ListingMap
+
+    costs = (SkuCost("กาแฟ TikTok", 5000, date(2026, 1, 1)),)
+    maps = (ListingMap("[2แถม2] กาแฟ | ค่าเริ่มต้น", "กาแฟ TikTok", 4, 20000),)
+    r = build_report(
+        period_start=SEP1, period_end=SEP30, settlements=(sett("T1", SEP1, 70000, platform=Platform.TIKTOK),),
+        order_lines=(OrderLine(Platform.TIKTOK, "T1", 1, "[2แถม2] กาแฟ | ค่าเริ่มต้น", 2, SEP1),),
+        sku_costs=costs, expenses=(), listing_maps=maps,
+    )
+    assert r.orders[0].cogs == 2 * 4 * 5000 and r.total.net_profit == 70000 - 40000
+    assert r.by_base_product["กาแฟ TikTok"].quantity == 8 and r.by_base_product["กาแฟ TikTok"].net_profit == 30000
+    assert r.by_product["[2แถม2] กาแฟ | ค่าเริ่มต้น"].quantity == 2
+    # mapped listing without base cost → problem names the base product
+    r2 = build_report(period_start=SEP1, period_end=SEP30, settlements=(sett("T1", SEP1, 70000, platform=Platform.TIKTOK),),
+                      order_lines=(OrderLine(Platform.TIKTOK, "T1", 1, "[2แถม2] กาแฟ | ค่าเริ่มต้น", 2, SEP1),), sku_costs=(), expenses=(), listing_maps=maps)
+    assert r2.orders[0].cogs is None and "สินค้าฐาน กาแฟ TikTok" in r2.problems[0].message
