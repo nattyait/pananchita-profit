@@ -7,7 +7,7 @@
 |---|---|---|
 | **Platform** | ช่องทางที่ลงออเดอร์: `shopee`, `tiktok`, `facebook` | enum คงที่ ห้าม string อื่น |
 | **ReportUpload** | ไฟล์รายงาน 1 ไฟล์ที่พนักงานอัพโหลด พร้อม sha256, ชนิดรายงาน, ผู้อัพ, เวลาอัพ | append-only; ไฟล์ดิบเก็บก่อน parse เสมอ |
-| **ReportKind** | ชนิดรายงานจาก platform: `orders` (รายการสั่งซื้อ/สินค้า) หรือ `income` (รายงานรายได้/เงินที่ปล่อย) | Shopee: "รายการคำสั่งซื้อ" และ "รายงานรายได้" |
+| **ReportKind** | ชนิดรายงานจาก platform: `orders` (รายการสั่งซื้อ/สินค้า), `income` (รายงานรายได้/เงินที่ปล่อย) หรือ `ads` (ใบแจ้งยอดค่าโฆษณา → Expense ค่าแอดที่จ่ายนอกยอดโอน) | Shopee: "รายการคำสั่งซื้อ" และ "รายงานรายได้"; `ads` มีเฉพาะ TikTok (ADR-0007) |
 | **OrderLine** | 1 บรรทัดสินค้าในออเดอร์: order_id, sku (=ProductKey), quantity, ordered_at, status, cancelled, payment_method | มาจาก ReportKind=orders; ใช้คิด COGS และ PendingOrder เท่านั้น |
 | **line_amount** | ราคาขายสุทธิต่อชิ้น × จำนวน ของ OrderLine ใช้เป็นน้ำหนักแบ่งเงินของออเดอร์ลงแต่ละบรรทัด | ADR-0004; ไม่ใช่รายได้ |
 | **OrderLineProfit** | ส่วนของ OrderProfit ที่ตกกับ 1 บรรทัดสินค้า: share ของ net_received − COGS − share ของ Expense | Σ ทุกบรรทัด = OrderProfit |

@@ -77,3 +77,55 @@ def _merge(a: Settlement, b: Settlement) -> Settlement:
 
 def parse_orders(records: list[tuple[int, dict[str, Any]]], options: dict[str, Any] | None = None) -> ParseResult[OrderLine]:
     return _common.parse_orders(PLATFORM, records, options)
+
+
+def _payment_method(description: str) -> str:
+    return description.split(":", 1)[1].strip() if ":" in description else description.strip()
+
+
+def parse_ads(records: list[tuple[int, dict[str, Any]]], options: dict[str, Any] | None = None) -> ParseResult[Expense]:
+    """Ads Manager statement (ADR-0007). Only bills paid outside the payout become ads Expenses.
+    Bills paid by GMV Pay are already imported from the income statement (ADR-0005); ad credit is not cash."""
+    opts = options or {}
+    charge_subtypes = {s.strip() for s in opts.get("charge_subtypes", ())}
+    success = {s.strip() for s in opts.get("success_statuses", ())}
+    free_funds = {s.strip() for s in opts.get("free_fund_types", ())}
+    charged = {s.strip() for s in opts.get("charged_payment_methods", ())}
+    from_payout = {s.strip() for s in opts.get("payout_payment_methods", ())}
+    charges: list[Expense] = []
+    problems: list[ImportProblem] = []
+    skipped_payout = skipped_free = 0
+    for row_no, rec in records:
+        if _common.text(rec.get("fund_type")) in free_funds:
+            skipped_free += 1
+            continue
+        status, subtype = _common.text(rec.get("status")), _common.text(rec.get("transaction_subtype"))
+        if status not in success:
+            problems.append(ImportProblem(f"สถานะ '{status}' ไม่ใช่รายการสำเร็จ — ข้ามแถว", row_no, "status"))
+            continue
+        if subtype not in charge_subtypes:
+            problems.append(ImportProblem(f"ไม่รู้จักประเภทธุรกรรม '{subtype}' — ข้ามแถว", row_no, "transaction_subtype"))
+            continue
+        method = _payment_method(_common.text(rec.get("description")))
+        if method in from_payout:
+            skipped_payout += 1
+            continue
+        if method not in charged:
+            problems.append(ImportProblem(f"ไม่รู้จักวิธีจ่าย '{method}' — ข้ามแถว ตรวจว่าจ่ายจากยอดโอนหรือจ่ายเอง", row_no, "description"))
+            continue
+        ref = _common.text(rec.get("transaction_id"))
+        try:
+            day = parse_date(_common.text(rec.get("transacted_at")))
+            amount = parse_money(_common.text(rec.get("amount")))
+        except ValueError:
+            problems.append(ImportProblem("อ่านวันที่หรือยอดเงินไม่ได้", row_no, "amount"))
+            continue
+        if not ref:
+            problems.append(ImportProblem("ไม่มีรหัสธุรกรรม", row_no, "transaction_id"))
+            continue
+        charges.append(Expense(ExpenseKind.ADS, PLATFORM.value, amount, day, f"TikTok Ads จ่ายด้วย {method} {ref}", source_ref=f"tiktok-ads:{ref}"))
+    if skipped_payout:
+        problems.append(ImportProblem(f"ข้าม {skipped_payout} แถวที่จ่ายด้วย {', '.join(sorted(from_payout))} (หักจากยอดโอน นำเข้าจากรายงานรายรับแล้ว)"))
+    if skipped_free:
+        problems.append(ImportProblem(f"ข้าม {skipped_free} แถว {', '.join(sorted(free_funds))} (เครดิตฟรี ไม่ใช่เงินที่จ่ายจริง)"))
+    return ParseResult((), tuple(problems), tuple(charges))

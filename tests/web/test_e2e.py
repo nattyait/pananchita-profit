@@ -101,6 +101,27 @@ def test_fully_returned_order_shows_a_label_instead_of_zeros(client):
     assert "0.00" not in orders.split("รอรับเงิน")[0]
 
 
+def test_tiktok_ads_statement_adds_card_bills_once(client):
+    head = ["Transaction time", "Time zone", "Transaction type", "Transaction subtype", "Account Type", "Account name", "Account ID",
+            "Transaction ID", "Description", "Document", "Operator", "Status", "Fund type", "Amount", "Currency"]
+    def row(when, subtype, tx, desc, fund, amount):
+        return [when, "UTC+07:00", "General", subtype, "ADV", "ร้าน", "1", tx, desc, "D", "-", "Success", fund, amount, "THB"]
+    card = "Payment method:\nCredit or debit card"
+    rows = [row("2026/09/23 18:44", "Bill payment", "T-GMV", "Payment method:\nGMV Pay", "Credit", "+16107.00"),
+            row("2026/09/08 22:38", "Bill payment", "T-CARD", card, "Credit", "+13584.52"),
+            row("2026/09/08 22:37", "Issued", "T-FREE", "-", "Ad credit", "+1600.00")]
+    r = client.post("/upload", data={"platform": "tiktok", "kind": "ads", "uploaded_by": "เก๋"}, files={"file": ("Transaction_1.xlsx", _xlsx([head, *rows]))})
+    assert r.status_code == 200 and "นำเข้าค่าแอด 1 รายการ" in r.text and "GMV Pay" in r.text and "Ad credit" in r.text
+    # an overlapping later export with the same card bill must not add it twice
+    later = _xlsx([head, rows[1], row("2026/09/16 12:41", "Bill payment", "T-CARD2", card, "Credit", "+181.83")])
+    r = client.post("/upload", data={"platform": "tiktok", "kind": "ads", "uploaded_by": "เก๋"}, files={"file": ("Transaction_2.xlsx", later)})
+    assert "นำเข้าค่าแอด 1 รายการ (ข้าม 1 รายการที่เคยนำเข้าแล้ว)" in r.text
+    expenses = client.get("/expenses").text
+    assert expenses.count("13,584.52") == 1 and "181.83" in expenses and "16,107.00" not in expenses and "1,600.00" not in expenses
+    r = client.post("/upload", data={"platform": "shopee", "kind": "ads", "uploaded_by": "เก๋"}, files={"file": ("x.xlsx", _xlsx([head]))})
+    assert "ยังไม่รองรับรายงานชนิด" in r.text
+
+
 def test_upload_then_dashboard_shows_profit(client):
     inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["A1", "2026-09-15", 285]])
     r = client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("inc.xlsx", inc)}, follow_redirects=False)

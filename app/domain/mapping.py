@@ -31,6 +31,8 @@ class ResolvedMapping:
 
 
 def spec_from_yaml(data: dict[str, Any], kind: str) -> ReportSpec:
+    if kind not in data.get("reports", {}):
+        raise ValueError(f"แพลตฟอร์มนี้ยังไม่รองรับรายงานชนิด '{kind}' — ตรวจว่าเลือกแพลตฟอร์มและชนิดรายงานถูก")
     report = data["reports"][kind]
     return ReportSpec(
         required=tuple(report["required"]),
