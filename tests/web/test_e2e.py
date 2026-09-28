@@ -29,6 +29,16 @@ def _xlsx(rows):
     return buf.getvalue()
 
 
+def test_cost_form_saves_when_base_product_typed_without_hidden_name(client):
+    # production bug 2026-09-28: typing a base product into the box leaves hidden product_name empty → 422
+    r = client.post("/sku-costs", data={"sku": "AM WOW", "product_name": "", "unit_cost": "96", "effective_from": "2026-05-01"})
+    assert r.status_code == 200 and "96.00" in r.text
+    r = client.post("/sku-costs", data={"sku": "AM WOW", "product_name": "", "unit_cost": "97", "effective_from": "2026-05-01"})
+    assert r.status_code == 200 and "97.00" in r.text and "96.00" not in r.text  # same product + date replaces
+    r = client.post("/sku-costs/1/edit", data={"sku": "AM WOW", "product_name": "", "unit_cost": "95", "effective_from": "2026-05-01"})
+    assert r.status_code == 200 and "95.00" in r.text
+
+
 def test_upload_then_dashboard_shows_profit(client):
     inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["A1", "2026-09-15", 285]])
     r = client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("inc.xlsx", inc)}, follow_redirects=False)
