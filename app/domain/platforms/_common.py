@@ -68,7 +68,7 @@ def parse_orders(platform: Platform, records: list[tuple[int, dict[str, Any]]], 
             OrderLine(
                 platform, order_id, line_no_by_order[order_id], key, max(qty - returned, 0), ordered_at,
                 product_name=product_name, status=status, payment_method=text(rec.get("payment_method")),
-                cancelled=status.lower() in cancelled_statuses, line_amount=line_amount,
+                cancelled=status.lower() in cancelled_statuses, line_amount=line_amount, variant_name=variant,
             )
         )
     return ParseResult(tuple(lines), tuple(problems))

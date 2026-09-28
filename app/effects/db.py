@@ -5,6 +5,7 @@ upload *status* (received → imported/failed), which is bookkeeping, not conten
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
@@ -72,6 +73,7 @@ class OrderLineRow(Base):
     payment_method: Mapped[str] = mapped_column(String(80), default="")
     cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
     line_amount: Mapped[int] = mapped_column(Integer, default=0)
+    variant_name: Mapped[str] = mapped_column(String(255), default="")
 
 
 class SkuCostRow(Base):
@@ -117,6 +119,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "order_lines": {
         "product_name": "VARCHAR(255) NOT NULL DEFAULT ''", "status": "VARCHAR(80) NOT NULL DEFAULT ''",
         "payment_method": "VARCHAR(80) NOT NULL DEFAULT ''", "cancelled": "BOOLEAN NOT NULL DEFAULT 0", "line_amount": "INTEGER NOT NULL DEFAULT 0",
+        "variant_name": "VARCHAR(255) NOT NULL DEFAULT ''",
     },
 }
 
@@ -177,7 +180,7 @@ def insert_order_lines(s: Session, upload_id: int, lines: tuple[OrderLine, ...])
     for ln in lines:
         s.add(OrderLineRow(upload_id=upload_id, platform=ln.platform.value, order_id=ln.order_id, line_no=ln.line_no, sku=ln.sku,
                            product_name=ln.product_name, quantity=ln.quantity, ordered_at=ln.ordered_at, status=ln.status,
-                           payment_method=ln.payment_method, cancelled=ln.cancelled, line_amount=ln.line_amount))
+                           payment_method=ln.payment_method, cancelled=ln.cancelled, line_amount=ln.line_amount, variant_name=ln.variant_name))
     s.flush()
     return len(lines)
 
@@ -210,7 +213,7 @@ def all_order_lines(s: Session) -> tuple[OrderLine, ...]:
     m = OrderLineRow
     q = _latest_upload_per_key(s, m, [m.platform, m.order_id, m.line_no])
     return tuple(OrderLine(Platform(r.platform), r.order_id, r.line_no, r.sku, r.quantity, r.ordered_at, r.product_name, r.status, r.payment_method,
-                           bool(r.cancelled), r.line_amount) for r in s.scalars(q))
+                           bool(r.cancelled), r.variant_name, r.line_amount) for r in s.scalars(q))
 
 
 # ---------- sku costs ----------
@@ -249,12 +252,32 @@ def delete_sku_cost(s: Session, cost_id: int) -> None:
         s.flush()
 
 
-def known_skus_without_cost(s: Session) -> list[tuple[str, str]]:
+@dataclass(frozen=True)
+class ProductSeen:
+    """A ProductKey seen in order lines, for the cost page (display only)."""
+
+    sku: str
+    platform: str
+    product_name: str
+    variant_name: str
+    quantity: int
+    order_count: int
+    last_ordered_at: date
+    has_cost: bool
+
+
+def products_seen(s: Session) -> list[ProductSeen]:
     have = {r.sku for r in s.scalars(select(SkuCostRow))}
-    seen: dict[str, str] = {}
-    for r in s.scalars(select(OrderLineRow)):
-        seen.setdefault(r.sku, r.product_name)
-    return sorted((sku, name) for sku, name in seen.items() if sku not in have)
+    m = OrderLineRow
+    q = _latest_upload_per_key(s, m, [m.platform, m.order_id, m.line_no]).where(m.cancelled.is_(False))
+    acc: dict[str, list] = {}
+    for r in s.scalars(q):
+        a = acc.setdefault(r.sku, [r.platform, r.product_name, r.variant_name, 0, set(), r.ordered_at])
+        a[3] += r.quantity
+        a[4].add(r.order_id)
+        a[5] = max(a[5], r.ordered_at)
+    out = [ProductSeen(sku, a[0], a[1], a[2], a[3], len(a[4]), a[5], sku in have) for sku, a in acc.items()]
+    return sorted(out, key=lambda p: (p.has_cost, -p.quantity, p.sku))
 
 
 # ---------- expenses ----------
