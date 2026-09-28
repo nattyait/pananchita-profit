@@ -74,7 +74,8 @@
     <small>× {{ p.units_per_listing }} {{ b.unit_label }}{% if uc is not none %} = ต้นทุน {{ (uc * p.units_per_listing)|baht }} / ชิ้น{% endif %}</small>
     <form method="post" action="/listing-maps/delete" style="display:inline"><input type="hidden" name="sku" value="{{ p.sku }}"><button class="danger" type="submit" title="ยกเลิกการผูก">✕</button></form></div>{% else %}—{% endfor %}</td>
   <td class="n">{% set ns = namespace(u=0) %}{% for p in ls %}{% set ns.u = ns.u + p.quantity * p.units_per_listing %}{% endfor %}{{ ns.u }}</td>
-  <td class="actions"><a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ 'เปลี่ยนราคาทุน' if uc is not none else 'ใส่ราคาทุน' }}</a> · <a href="/sku-costs?rename={{ b.name|urlencode }}#rename-form">แก้ชื่อ/หน่วย</a></td></tr>
+  <td class="actions"><a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ 'เปลี่ยนราคาทุน' if uc is not none else 'ใส่ราคาทุน' }}</a> · <a href="/sku-costs?rename={{ b.name|urlencode }}#rename-form">แก้ชื่อ/หน่วย</a>
+    {% if b.name in deletable %}<form method="post" action="/base-products/delete" style="display:inline" onsubmit="return confirm('ลบสินค้าฐานนี้? ไม่มีรายการขายผูกอยู่ จึงไม่กระทบต้นทุนออเดอร์ไหน')"><input type="hidden" name="name" value="{{ b.name }}"><button class="danger" type="submit">ลบ</button></form>{% endif %}</td></tr>
   {% endfor %}
 </table>
 {% endif %}

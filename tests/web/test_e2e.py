@@ -85,5 +85,15 @@ def test_upload_then_dashboard_shows_profit(client):
     client.post("/base-products/rename", data={"old": "ครีมฐาน", "new": "ครีม", "unit_label": "หลอด"})
     costs_page = client.get("/sku-costs").text
     assert "ครีม" in costs_page and "หลอด" in costs_page and "= ต้นทุน 40.00 / ชิ้น" in costs_page
+    # an unused base product can be deleted; one with a listing mapped cannot
+    client.post("/sku-costs", data={"sku": "กาแฟว่าง", "unit_cost": "110", "effective_from": "2026-05-01"})
+    client.post("/listing-maps", data={"sku": "X-NEW", "base_product": "กาแฟว่าง", "unit_label": "กล่อง", "units_per_listing": "1"})
+    client.post("/listing-maps/delete", data={"sku": "X-NEW"})
+    assert 'name="name" value="กาแฟว่าง"' in client.get("/sku-costs").text
+    assert 'name="name" value="ครีม"' not in client.get("/sku-costs").text
+    client.post("/base-products/delete", data={"name": "ครีม"})
+    assert "= ต้นทุน 40.00 / ชิ้น" in client.get("/sku-costs").text
+    client.post("/base-products/delete", data={"name": "กาแฟว่าง"})
+    assert "กาแฟว่าง" not in client.get("/sku-costs").text
     assert client.get("/uploads").status_code == 200
     assert "A1" not in client.get("/", params={"start": "2026-10-01", "end": "2026-10-31", "platform": "shopee"}).text.split("รอรับเงิน")[0]

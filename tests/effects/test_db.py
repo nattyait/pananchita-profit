@@ -27,6 +27,17 @@ def test_saving_same_sku_and_date_again_replaces_the_cost():
     assert len(rows) == 1 and rows[0].unit_cost == 120 and rows[0].product_name == "ครีม"
 
 
+def test_delete_base_product_removes_it_and_its_cost_rows_only():
+    s = _session()
+    db.upsert_base_product(s, name="กาแฟ", unit_label="กล่อง")
+    db.upsert_base_product(s, name="โลชั่น", unit_label="หลอด")
+    db.insert_sku_cost(s, sku="กาแฟ", product_name="กาแฟ", unit_cost=11000, effective_from=date(2026, 5, 1))
+    db.insert_sku_cost(s, sku="โลชั่น", product_name="โลชั่น", unit_cost=14100, effective_from=date(2026, 5, 1))
+    db.delete_base_product(s, "กาแฟ")
+    assert [b.name for b in db.list_base_products(s)] == ["โลชั่น"]
+    assert [r.sku for r in db.list_sku_cost_rows(s)] == ["โลชั่น"]
+
+
 def test_update_and_delete_sku_cost():
     s = _session()
     row = db.insert_sku_cost(s, sku="PNC-001", product_name="ครีม", unit_cost=100, effective_from=date(2026, 1, 1))

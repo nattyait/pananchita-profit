@@ -16,6 +16,9 @@ Status: Accepted · Date: 2026-09-28
    กฎอยู่ใน `domain/profit.py::effective_unit_cost` ฟังก์ชันเดียว
 5. หน้า ต้นทุนสินค้า: รายการขายที่ยังไม่มีต้นทุนจะ "ผูกกับสินค้าฐาน" (เลือกหรือตั้งชื่อใหม่ + จำนวนหน่วย + ราคาต่อหน่วย) แล้วใส่ต้นทุนที่สินค้าฐานครั้งเดียว
 6. `ProfitReport.by_base_product`: สรุปต่อสินค้าฐาน โดย quantity นับเป็นหน่วยฐาน (ชิ้น × units_per_listing); `by_product` (ต่อรายการขาย) คงเดิม
+7. ลบสินค้าฐานได้เฉพาะตัวที่ไม่มีอะไรคิดต้นทุนผ่านมัน: ไม่มี ListingMap ชี้มา (รวมรายการที่ออเดอร์ถูกยกเลิกหมด) และไม่มี OrderLine
+   ที่ ProductKey ตรงกับชื่อนั้น ลบแล้วลบ SkuCost ที่คีย์ด้วยชื่อนั้นด้วย จึงไม่เปลี่ยน COGS ของออเดอร์ไหน (เพิ่ม 2026-09-28)
+   กฎอยู่ใน `domain/base_products.py::deletable_base_products`; use case `orchestration/base_products.py::DeleteUnusedBaseProduct`
 
 ## Consequences
 - (+) ใส่ต้นทุนครั้งเดียวต่อสินค้าจริง; รายการขายใหม่แค่ผูกเข้าสินค้าฐาน
