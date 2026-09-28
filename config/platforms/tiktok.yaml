@@ -47,3 +47,23 @@ reports:
     options:
       cancelled_statuses: ["ยกเลิกแล้ว", "ยกเลิก", "Cancelled", "Canceled"]
       default_variations: ["ค่าเริ่มต้น", "Default"]
+  # ADR-0007: ใบแจ้งยอดบัญชีโฆษณา TikTok Ads Manager (Transaction_<account id>_<เวลา>.xlsx) ล็อกจากไฟล์จริง ก.ย. 2026
+  # นำเข้าเฉพาะบิลที่ร้านจ่ายเอง (บัตร) เป็นค่าแอด; บิลที่จ่ายด้วย GMV Pay ถูกหักจากยอดโอนและนำเข้าจากรายงานรายรับแล้ว (ADR-0005)
+  ads:
+    required: [transaction_id, transacted_at, transaction_subtype, status, fund_type, amount]
+    headers:
+      transacted_at:       ["Transaction time"]
+      transaction_subtype: ["Transaction subtype"]
+      transaction_id:      ["Transaction ID"]
+      description:         ["Description"]
+      status:              ["Status"]
+      fund_type:           ["Fund type"]
+      amount:              ["Amount"]
+    options:
+      charge_subtypes: ["Bill payment"]
+      success_statuses: ["Success"]
+      # เครดิตโฆษณาที่ TikTok ให้ฟรี ไม่ใช่เงินที่จ่ายจริง
+      free_fund_types: ["Ad credit"]
+      # วิธีจ่ายที่ร้านจ่ายเอง → เป็นค่าแอด; วิธีที่หักจากยอดโอน → ข้าม; วิธีอื่นที่ไม่รู้จัก → แจ้งปัญหา ไม่เดา
+      charged_payment_methods: ["Credit or debit card"]
+      payout_payment_methods: ["GMV Pay"]

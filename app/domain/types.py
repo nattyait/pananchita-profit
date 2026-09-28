@@ -19,6 +19,7 @@ SHARED = "shared"  # Expense not tied to one Platform
 class ReportKind(StrEnum):
     ORDERS = "orders"
     INCOME = "income"
+    ADS = "ads"  # ads billing statement → ads Expenses paid outside the payout (ADR-0007)
 
 
 class ExpenseKind(StrEnum):
