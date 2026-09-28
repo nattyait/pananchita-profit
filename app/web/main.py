@@ -135,8 +135,9 @@ def remove_listing_map(s: Db, sku: Annotated[str, Form()]):
 
 
 @app.post("/sku-costs")
-def add_sku_cost(s: Db, sku: Annotated[str, Form()], product_name: Annotated[str, Form()], unit_cost: Annotated[str, Form()], effective_from: Annotated[date, Form()]):
-    db.insert_sku_cost(s, sku=sku.strip(), product_name=product_name.strip(), unit_cost=parse_money(unit_cost), effective_from=effective_from)
+def add_sku_cost(s: Db, sku: Annotated[str, Form()], unit_cost: Annotated[str, Form()], effective_from: Annotated[date, Form()],
+                 product_name: Annotated[str, Form()] = ""):
+    db.insert_sku_cost(s, sku=sku.strip(), product_name=product_name.strip() or sku.strip(), unit_cost=parse_money(unit_cost), effective_from=effective_from)
     s.commit()
     return RedirectResponse("/sku-costs", status_code=303)
 
@@ -152,10 +153,10 @@ def edit_sku_cost_form(request: Request, s: Db, cost_id: int, error: str | None 
 
 
 @app.post("/sku-costs/{cost_id}/edit")
-def edit_sku_cost(s: Db, cost_id: int, sku: Annotated[str, Form()], product_name: Annotated[str, Form()], unit_cost: Annotated[str, Form()],
-                  effective_from: Annotated[date, Form()]):
+def edit_sku_cost(s: Db, cost_id: int, sku: Annotated[str, Form()], unit_cost: Annotated[str, Form()],
+                  effective_from: Annotated[date, Form()], product_name: Annotated[str, Form()] = ""):
     try:
-        db.update_sku_cost(s, cost_id, sku=sku.strip(), product_name=product_name.strip(), unit_cost=parse_money(unit_cost), effective_from=effective_from)
+        db.update_sku_cost(s, cost_id, sku=sku.strip(), product_name=product_name.strip() or sku.strip(), unit_cost=parse_money(unit_cost), effective_from=effective_from)
         s.commit()
     except IntegrityError:
         s.rollback()
