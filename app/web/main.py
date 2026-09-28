@@ -58,7 +58,8 @@ def dashboard(request: Request, s: Db, start: date | None = None, end: date | No
     start, end = start or d_start, end or d_end
     chosen = Platform(platform) if platform in Platform._value2member_map_ else None
     report = BuildProfitReport(s).run(start=start, end=end, platform=chosen)
-    return _render(request, "dashboard.html", report=report, start=start, end=end, platform=platform, ExpenseKind=ExpenseKind)
+    return _render(request, "dashboard.html", report=report, start=start, end=end, platform=platform, ExpenseKind=ExpenseKind,
+                   to_export=BuildProfitReport.reports_to_export(report, date.today()))
 
 
 @app.get("/upload", response_class=HTMLResponse)

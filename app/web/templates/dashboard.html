@@ -25,6 +25,23 @@
 </div>
 {% endif %}
 
+{% if to_export %}
+<div class="notice">
+  <strong>ไฟล์ที่ต้อง export จากแพลตฟอร์มเพิ่ม</strong> — เพื่อจับคู่ออเดอร์ที่ยังไม่ครบ แล้วนำมา<a href="/upload">อัพโหลด</a>
+  <table class="grid">
+    <tr><th>แพลตฟอร์ม</th><th>ไฟล์</th><th>เลือกช่วงวันที่</th><th class="n">ออเดอร์</th><th>ทำไม</th></tr>
+    {% for r in to_export %}
+    <tr><td>{{ dict(PLATFORMS).get(r.platform.value, r.platform.value) }}</td>
+      <td>{{ dict(KINDS)[r.kind.value] }}</td>
+      <td>{{ 'วันที่สั่งซื้อ' if r.date_field == 'ordered_at' else 'วันที่โอนเงิน' }} {{ r.start.strftime('%d/%m/%Y') }} – {{ r.end.strftime('%d/%m/%Y') }}</td>
+      <td class="n">{{ r.order_count }}</td>
+      <td>{% if r.date_field == 'ordered_at' %}ได้เงินแล้วแต่ยังไม่มีรายการสินค้า จึงคิดต้นทุนไม่ได้{% else %}ยังไม่เห็นเงินโอน ถ้าแพลตฟอร์มโอนแล้วให้ export ไฟล์นี้ ถ้ายังไม่โอนก็รอได้{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+  <p class="hint">ช่วงวันที่สั่งซื้อเริ่มก่อนวันได้เงินแรก 30 วัน เพราะออเดอร์สั่งก่อนได้เงินเสมอ ช่วงที่กว้างกว่านี้ใช้ได้ ไฟล์ที่ซ้อนกับที่เคยอัพแล้วไม่ทำให้ตัวเลขซ้ำ</p>
+</div>
+{% endif %}
+
 {% if report.problems %}
 <div class="notice">
   <strong>{{ report.problems|length }} รายการที่คิดต้นทุนไม่ได้</strong> — ออเดอร์เหล่านี้แสดงยอดรับจริงแต่ไม่แสดงกำไร จนกว่าจะ<a href="/sku-costs">ใส่ต้นทุน SKU</a> หรือ<a href="/upload">อัพโหลดรายงานคำสั่งซื้อ</a>
