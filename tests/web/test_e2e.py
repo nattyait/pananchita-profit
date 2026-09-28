@@ -41,7 +41,7 @@ def test_upload_then_dashboard_shows_profit(client):
     client.post("/expenses", data={"kind": "ads", "platform": "shopee", "amount": "35", "incurred_on": "2026-09-20", "note": ""})
     page = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     assert "285.00" in page and "100.00" in page and "150.00" in page  # net, cogs, profit 285-100-35
-    assert "กำไรตามสินค้า" in page and "75.00" in page  # profit per unit: 150 / 2 pieces
+    assert "กำไรตามรายการขาย" in page and "75.00" in page  # profit per unit: 150 / 2 pieces
     assert "ขาดทุน" not in page
     # edit the cost row: 50 → 60 changes profit 150 → 130; a duplicate (sku, date) is rejected with a message
     client.post("/sku-costs", data={"sku": "PNC-001", "product_name": "ครีม", "unit_cost": "99", "effective_from": "2026-12-01"})  # future row, not effective yet
@@ -53,5 +53,12 @@ def test_upload_then_dashboard_shows_profit(client):
     assert "อยู่แล้ว" in dup.text
     client.post("/sku-costs/2/delete")
     assert "99.00" not in client.get("/sku-costs").text
+    # ADR-0006: map the listing to a base product (1 piece = 2 boxes at 20/box → 40 per piece, 2 pieces → 80)
+    form = {"sku": "PNC-001", "base_product": "ครีมฐาน", "unit_label": "กล่อง", "units_per_listing": "2", "unit_price": "100"}
+    r = client.post("/listing-maps", data=form, follow_redirects=True)
+    assert 'value="ครีมฐาน"' in r.text  # redirected to the cost form for the new base product
+    client.post("/sku-costs", data={"sku": "ครีมฐาน", "product_name": "ครีมฐาน", "unit_cost": "20", "effective_from": "2026-01-01"})
+    page = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
+    assert "กำไรตามสินค้าฐาน" in page and "80.00" in page
     assert client.get("/uploads").status_code == 200
     assert "A1" not in client.get("/", params={"start": "2026-10-01", "end": "2026-10-31", "platform": "shopee"}).text.split("รอรับเงิน")[0]
