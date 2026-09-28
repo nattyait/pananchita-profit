@@ -47,9 +47,12 @@ def test_upload_then_dashboard_shows_profit(client):
     client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"}, files={"file": ("ord.xlsx", ords)})
     costs = client.get("/sku-costs").text
     assert "ยังไม่มีต้นทุน" in costs and "ผูกสินค้าฐาน" in costs and "ใส่ต้นทุนตรง" not in costs
+    unknown = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
+    assert 'href="/sku-costs?map=PNC-001#map-form"' in unknown  # missing cost links straight to the listing's map form
     client.post("/sku-costs", data={"sku": "PNC-001", "product_name": "ครีม", "unit_cost": "50", "effective_from": "2026-01-01"})
+    assert "map=PNC-001" not in client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     client.post("/expenses", data={"kind": "ads", "platform": "shopee", "amount": "35", "incurred_on": "2026-09-20", "note": ""})
-    page = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
+    page =client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     assert "285.00" in page and "100.00" in page and "150.00" in page  # net, cogs, profit 285-100-35
     assert "กำไรตามรายการขาย" in page and "75.00" in page  # profit per unit: 150 / 2 pieces
     assert "ขาดทุน" not in page
