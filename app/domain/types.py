@@ -65,6 +65,7 @@ class OrderLine:
     status: str = ""
     payment_method: str = ""
     cancelled: bool = False
+    variant_name: str = ""  # effective variation after default-variation stripping (display only; ProductKey is `sku`)
     line_amount: int = 0  # satang: unit price × quantity from the order report — a weight for splitting, never revenue (ADR-0004)
 
 
