@@ -77,7 +77,7 @@
   {% for ln in o.lines %}
   <tr class="line {% if ln.profit is none %}{% elif ln.profit < 0 %}loss{% else %}gain{% endif %}">
     <td></td><td></td><td class="sku">{{ ln.sku }}</td><td></td><td class="n">{{ ln.quantity }}</td><td></td>
-    <td class="n">{{ ln.net_received|baht }}</td><td class="n">{{ ln.cogs|baht if ln.cogs is not none else '?' }}</td><td class="n">{{ ln.allocated_expense|baht }}</td>
+    <td class="n">{{ ln.net_received|baht }}</td><td class="n">{% if ln.cogs is not none %}{{ ln.cogs|baht }}{% else %}<a href="/sku-costs?map={{ ln.sku|urlencode }}#map-form" title="ใส่ต้นทุนของสินค้านี้">? ใส่ต้นทุน</a>{% endif %}</td><td class="n">{{ ln.allocated_expense|baht }}</td>
     <td class="n profit">{{ ln.profit|baht if ln.profit is not none else 'ไม่ทราบ' }}</td>
   </tr>
   {% endfor %}
