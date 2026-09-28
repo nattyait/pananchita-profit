@@ -39,6 +39,9 @@ def test_listing_map_marks_listing_covered_when_base_product_has_cost():
     db.insert_sku_cost(s, sku="กาแฟ TikTok", product_name="", unit_cost=5000, effective_from=date(2026, 1, 1))
     assert db.products_seen(s)[0].has_cost is True
     assert db.all_listing_maps(s)[0].units_per_listing == 4
+    db.rename_base_product(s, old="กาแฟ TikTok", new="กาแฟ", unit_label="")
+    assert db.all_listing_maps(s)[0].base_product == "กาแฟ" and db.all_sku_costs(s)[0].sku == "กาแฟ"
+    assert db.products_seen(s)[0].has_cost is True
     db.delete_listing_map(s, "[2แถม2] กาแฟ")
     assert db.all_listing_maps(s) == ()
 
