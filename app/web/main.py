@@ -97,7 +97,8 @@ def sku_costs(request: Request, s: Db):
                    seen_by_sku={p.sku: p for p in seen}, today=date.today(), prefill=request.query_params.get("sku", ""),
                    base_products=base_products, base_without_cost=[b for b in base_products if b.name not in have],
                    listings_by_base={b.name: [p for p in seen if p.base_product == b.name] for b in base_products},
-                   map_sku=request.query_params.get("map", ""))
+                   map_sku=request.query_params.get("map", ""), rename=request.query_params.get("rename", ""),
+                   latest_cost={r.sku: r.unit_cost for r in sorted(db.list_sku_cost_rows(s), key=lambda r: r.effective_from)})
 
 
 @app.post("/listing-maps")
@@ -109,6 +110,13 @@ def save_listing_map(s: Db, sku: Annotated[str, Form()], base_product: Annotated
                           unit_price=parse_money(unit_price) if unit_price.strip() else 0)
     s.commit()
     return RedirectResponse(f"/sku-costs?sku={quote(name)}#cost-form" if name not in {r.sku for r in db.list_sku_cost_rows(s)} else "/sku-costs", status_code=303)
+
+
+@app.post("/base-products/rename")
+def rename_base_product(s: Db, old: Annotated[str, Form()], new: Annotated[str, Form()], unit_label: Annotated[str, Form()] = ""):
+    db.rename_base_product(s, old=old.strip(), new=new.strip(), unit_label=unit_label.strip())
+    s.commit()
+    return RedirectResponse("/sku-costs", status_code=303)
 
 
 @app.post("/listing-maps/delete")
