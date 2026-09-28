@@ -19,6 +19,14 @@ def test_newest_upload_wins_for_same_settlement_key():
     assert db.settlements_between(s, date(2026, 9, 6), date(2026, 9, 6))[0].order_id == "B"
 
 
+def test_saving_same_sku_and_date_again_replaces_the_cost():
+    s = _session()
+    db.insert_sku_cost(s, sku="PNC-001", product_name="ครีม", unit_cost=100, effective_from=date(2026, 1, 1))
+    db.insert_sku_cost(s, sku="PNC-001", product_name="", unit_cost=120, effective_from=date(2026, 1, 1))
+    rows = db.list_sku_cost_rows(s)
+    assert len(rows) == 1 and rows[0].unit_cost == 120 and rows[0].product_name == "ครีม"
+
+
 def test_update_and_delete_sku_cost():
     s = _session()
     row = db.insert_sku_cost(s, sku="PNC-001", product_name="ครีม", unit_cost=100, effective_from=date(2026, 1, 1))
