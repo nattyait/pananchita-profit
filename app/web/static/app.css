@@ -52,6 +52,7 @@ table.orders tr.line td.profit{font-weight:400}
 .tag.imported{background:var(--pine-soft);color:var(--pine)}
 .tag.failed{background:var(--loss-soft);color:var(--loss)}
 .tag.duplicate,.tag.wait{background:var(--wait-soft);color:var(--wait)}
+.tag.returned{background:var(--paper);color:var(--muted);border:1px solid var(--line)}
 .notice{padding:.8rem 1rem;border-left:4px solid var(--wait);background:var(--wait-soft);margin:1rem 0}
 .notice.bad{border-color:var(--loss);background:var(--loss-soft)}
 .empty{padding:2rem;border:1px dashed var(--line);color:var(--muted);text-align:center}

@@ -44,6 +44,16 @@ class OrderProfit:
     lines: tuple[OrderLineProfit, ...] = ()
 
     @property
+    def fully_returned(self) -> bool:
+        """Order lines exist but every piece came back (quantity after returns is 0)."""
+        return bool(self.lines) and self.quantity == 0
+
+    @property
+    def empty_return(self) -> bool:
+        """Fully returned and the platform moved no money for it: nothing to show but the fact."""
+        return self.fully_returned and self.net_received == 0 and self.fee_total == 0
+
+    @property
     def contribution(self) -> int | None:
         return None if self.cogs is None else self.net_received - self.cogs
 

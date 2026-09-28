@@ -86,11 +86,19 @@
   {% for o in report.orders %}
   <tr class="{% if o.profit is none %}{% elif o.profit < 0 %}loss{% else %}gain{% endif %}">
     <td>{{ o.settled_at.strftime('%d/%m/%y') }}</td><td>{{ o.platform.value }}</td><td>{{ o.order_id }}</td>
-    <td>{{ o.ordered_at.strftime('%d/%m/%y') if o.ordered_at else '—' }}</td><td class="n">{{ o.quantity or '—' }}</td>
+    <td>{{ o.ordered_at.strftime('%d/%m/%y') if o.ordered_at else '—' }}</td>
+    {% if o.empty_return %}
+    <td class="n" colspan="6"><span class="tag returned">คืนสินค้าทั้งหมด</span> ไม่ได้เงินและไม่มีต้นทุน</td>
+    {% else %}
+    <td class="n">{% if o.fully_returned %}<span class="tag returned">คืนสินค้าทั้งหมด</span>{% else %}{{ o.quantity or '—' }}{% endif %}</td>
     <td class="n">{{ o.fee_total|baht }}</td><td class="n">{{ o.net_received|baht }}</td>
     <td class="n">{{ o.cogs|baht if o.cogs is not none else '?' }}</td><td class="n">{{ o.allocated_expense|baht }}</td>
     <td class="n profit">{{ o.profit|baht if o.profit is not none else 'ไม่ทราบ' }}</td>
+    {% endif %}
   </tr>
+  {% if o.empty_return %}
+  {% for ln in o.lines %}<tr class="line"><td></td><td></td><td class="sku">{{ ln.sku }}</td><td></td><td colspan="6"></td></tr>{% endfor %}
+  {% else %}
   {% for ln in o.lines %}
   <tr class="line {% if ln.profit is none %}{% elif ln.profit < 0 %}loss{% else %}gain{% endif %}">
     <td></td><td></td><td class="sku">{{ ln.sku }}</td><td></td><td class="n">{{ ln.quantity }}</td><td></td>
@@ -98,6 +106,7 @@
     <td class="n profit">{{ ln.profit|baht if ln.profit is not none else 'ไม่ทราบ' }}</td>
   </tr>
   {% endfor %}
+  {% endif %}
   {% endfor %}
 </table>
 {% else %}<p class="hint">ไม่มีออเดอร์ที่ได้รับเงินในช่วงนี้</p>{% endif %}
