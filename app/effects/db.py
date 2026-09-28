@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, and_, create_engine, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
-from app.domain.types import Expense, ExpenseKind, OrderLine, Platform, Settlement, SkuCost
+from app.domain.types import Expense, ExpenseKind, ListingMap, OrderLine, Platform, Settlement, SkuCost
 
 
 class Base(DeclarativeBase):
@@ -84,6 +84,22 @@ class SkuCostRow(Base):
     product_name: Mapped[str] = mapped_column(String(255), default="")
     unit_cost: Mapped[int] = mapped_column(Integer)
     effective_from: Mapped[date] = mapped_column(Date)
+
+
+class BaseProductRow(Base):
+    __tablename__ = "base_products"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True)
+    unit_label: Mapped[str] = mapped_column(String(40), default="ชิ้น")
+
+
+class ListingMapRow(Base):
+    __tablename__ = "listing_maps"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sku: Mapped[str] = mapped_column(String(255), unique=True)  # ProductKey
+    base_product: Mapped[str] = mapped_column(String(255), index=True)
+    units_per_listing: Mapped[int] = mapped_column(Integer, default=1)
+    unit_price: Mapped[int] = mapped_column(Integer, default=0)  # satang, display only
 
 
 class ExpenseRow(Base):
@@ -264,10 +280,14 @@ class ProductSeen:
     order_count: int
     last_ordered_at: date
     has_cost: bool
+    base_product: str = ""
+    units_per_listing: int = 0
+    unit_price: int = 0
 
 
 def products_seen(s: Session) -> list[ProductSeen]:
     have = {r.sku for r in s.scalars(select(SkuCostRow))}
+    maps = {r.sku: r for r in s.scalars(select(ListingMapRow))}
     m = OrderLineRow
     q = _latest_upload_per_key(s, m, [m.platform, m.order_id, m.line_no]).where(m.cancelled.is_(False))
     acc: dict[str, list] = {}
@@ -276,8 +296,50 @@ def products_seen(s: Session) -> list[ProductSeen]:
         a[3] += r.quantity
         a[4].add(r.order_id)
         a[5] = max(a[5], r.ordered_at)
-    out = [ProductSeen(sku, a[0], a[1], a[2], a[3], len(a[4]), a[5], sku in have) for sku, a in acc.items()]
+    out = []
+    for sku, a in acc.items():
+        m = maps.get(sku)
+        covered = (m.base_product in have) if m else (sku in have)
+        out.append(ProductSeen(sku, a[0], a[1], a[2], a[3], len(a[4]), a[5], covered, m.base_product if m else "", m.units_per_listing if m else 0, m.unit_price if m else 0))
     return sorted(out, key=lambda p: (p.has_cost, -p.quantity, p.sku))
+
+
+# ---------- base products / listing maps (ADR-0006) ----------
+def all_listing_maps(s: Session) -> tuple[ListingMap, ...]:
+    return tuple(ListingMap(r.sku, r.base_product, r.units_per_listing, r.unit_price) for r in s.scalars(select(ListingMapRow)))
+
+
+def list_base_products(s: Session) -> list[BaseProductRow]:
+    return list(s.scalars(select(BaseProductRow).order_by(BaseProductRow.name)))
+
+
+def upsert_base_product(s: Session, *, name: str, unit_label: str) -> BaseProductRow:
+    row = s.scalar(select(BaseProductRow).where(BaseProductRow.name == name))
+    if row is None:
+        row = BaseProductRow(name=name, unit_label=unit_label or "ชิ้น")
+        s.add(row)
+    elif unit_label:
+        row.unit_label = unit_label
+    s.flush()
+    return row
+
+
+def upsert_listing_map(s: Session, *, sku: str, base_product: str, units_per_listing: int, unit_price: int) -> ListingMapRow:
+    row = s.scalar(select(ListingMapRow).where(ListingMapRow.sku == sku))
+    if row is None:
+        row = ListingMapRow(sku=sku, base_product=base_product, units_per_listing=units_per_listing, unit_price=unit_price)
+        s.add(row)
+    else:
+        row.base_product, row.units_per_listing, row.unit_price = base_product, units_per_listing, unit_price
+    s.flush()
+    return row
+
+
+def delete_listing_map(s: Session, sku: str) -> None:
+    row = s.scalar(select(ListingMapRow).where(ListingMapRow.sku == sku))
+    if row is not None:
+        s.delete(row)
+        s.flush()
 
 
 # ---------- expenses ----------

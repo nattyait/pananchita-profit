@@ -29,6 +29,20 @@ def test_update_and_delete_sku_cost():
     assert db.get_sku_cost(s, row.id) is None and db.all_sku_costs(s) == ()
 
 
+def test_listing_map_marks_listing_covered_when_base_product_has_cost():
+    s = _session()
+    u = db.insert_upload(s, platform="tiktok", kind="orders", filename="o.csv", sha256="9", uploaded_by="เก๋", uploaded_at=datetime(2026, 9, 1))
+    db.insert_order_lines(s, u.id, (OrderLine(Platform.TIKTOK, "T", 1, "[2แถม2] กาแฟ", 3, date(2026, 9, 1), "[2แถม2] กาแฟ"),))
+    db.upsert_base_product(s, name="กาแฟ TikTok", unit_label="กล่อง")
+    db.upsert_listing_map(s, sku="[2แถม2] กาแฟ", base_product="กาแฟ TikTok", units_per_listing=4, unit_price=20000)
+    assert db.products_seen(s)[0].has_cost is False and db.products_seen(s)[0].base_product == "กาแฟ TikTok"
+    db.insert_sku_cost(s, sku="กาแฟ TikTok", product_name="", unit_cost=5000, effective_from=date(2026, 1, 1))
+    assert db.products_seen(s)[0].has_cost is True
+    assert db.all_listing_maps(s)[0].units_per_listing == 4
+    db.delete_listing_map(s, "[2แถม2] กาแฟ")
+    assert db.all_listing_maps(s) == ()
+
+
 def test_order_lines_roundtrip_and_skus_without_cost():
     s = _session()
     u = db.insert_upload(s, platform="shopee", kind="orders", filename="o.xlsx", sha256="3", uploaded_by="เก๋", uploaded_at=datetime(2026, 9, 1))

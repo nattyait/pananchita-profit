@@ -77,6 +77,16 @@ class SkuCost:
 
 
 @dataclass(frozen=True)
+class ListingMap:
+    """ProductKey → BaseProduct name with a units multiplier (ADR-0006)."""
+
+    sku: str
+    base_product: str
+    units_per_listing: int
+    unit_price: int = 0  # satang, display only
+
+
+@dataclass(frozen=True)
 class Expense:
     kind: ExpenseKind
     platform: str  # Platform value or SHARED

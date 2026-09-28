@@ -22,5 +22,5 @@ class BuildProfitReport:
         return build_report(
             period_start=start, period_end=end, settlements=merged,
             order_lines=db.all_order_lines(self.s), sku_costs=db.all_sku_costs(self.s),
-            expenses=db.all_expenses(self.s), platform=platform,
+            expenses=db.all_expenses(self.s), platform=platform, listing_maps=db.all_listing_maps(self.s),
         )
