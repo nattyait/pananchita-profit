@@ -293,10 +293,11 @@ class ProductSeen:
 
 
 def _variant_from_key(sku: str, product_name: str) -> str:
-    """Rows imported before variant_name existed: the variation is still inside the ProductKey 'name | variant'."""
+    """Display text when variant_name is empty: the variation inside a 'name | variant' ProductKey, else the seller SKU
+    itself (shops like TikTok put the flavor only in the SKU, so listings with one product name look identical)."""
     if product_name and sku.startswith(product_name + " | "):
         return sku[len(product_name) + 3 :]
-    return ""
+    return "" if sku == product_name else sku
 
 
 def products_seen(s: Session) -> list[ProductSeen]:

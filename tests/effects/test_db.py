@@ -55,6 +55,18 @@ def test_variant_is_derived_from_key_for_rows_without_variant_name():
     assert db.products_seen(s)[0].variant_name == "3 ถุง"
 
 
+def test_seller_sku_is_shown_when_listing_has_no_variation():
+    # TikTok calcium: flavor lives only in the seller SKU, both listings share one product name
+    s = _session()
+    u = db.insert_upload(s, platform="tiktok", kind="orders", filename="o.csv", sha256="9", uploaded_by="เก๋", uploaded_at=datetime(2026, 9, 1))
+    db.insert_order_lines(s, u.id, (
+        OrderLine(Platform.TIKTOK, "T1", 1, "รสชอคโกแลต 1", 1, date(2026, 9, 1), "CALCIUM PLUS"),
+        OrderLine(Platform.TIKTOK, "T2", 1, "CALCIUM PLUS", 1, date(2026, 9, 1), "CALCIUM PLUS"),
+    ))
+    got = {p.sku: p.variant_name for p in db.products_seen(s)}
+    assert got == {"รสชอคโกแลต 1": "รสชอคโกแลต 1", "CALCIUM PLUS": ""}
+
+
 def test_listing_map_marks_listing_covered_when_base_product_has_cost():
     s = _session()
     u = db.insert_upload(s, platform="tiktok", kind="orders", filename="o.csv", sha256="9", uploaded_by="เก๋", uploaded_at=datetime(2026, 9, 1))
