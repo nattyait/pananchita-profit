@@ -34,16 +34,18 @@
 <p class="hint">รายการขายที่ผูกไว้และราคาทุนที่ใส่แล้วจะย้ายตามชื่อใหม่ทั้งหมด</p>
 {% endif %}
 
+{% if base_products %}
 <form class="inline" method="post" action="/sku-costs" id="cost-form">
   {% set pb = (base_products|selectattr('name', 'equalto', prefill)|first) if prefill else none %}
-  <label>{% if pb %}ราคาทุนของ {{ pb.name }}{% else %}สินค้าฐาน หรือ รหัสรายการขาย{% endif %} <input name="sku" required list="cost-keys" value="{{ prefill }}" style="min-width:26rem"></label>
-  <datalist id="cost-keys">{% for b in base_products %}<option value="{{ b.name }}">สินค้าฐาน · {{ b.unit_label }}</option>{% endfor %}{% for p in missing if not p.base_product %}<option value="{{ p.sku }}">{{ p.platform }} · {{ p.product_name }}{% if p.variant_name %} — {{ p.variant_name }}{% endif %}</option>{% endfor %}</datalist>
+  <label>{% if pb %}ราคาทุนของ {{ pb.name }}{% else %}สินค้าฐาน{% endif %} <input name="sku" required list="cost-keys" value="{{ prefill }}" style="min-width:26rem"></label>
+  <datalist id="cost-keys">{% for b in base_products %}<option value="{{ b.name }}">{{ b.unit_label }}</option>{% endfor %}</datalist>
   <input type="hidden" name="product_name" value="{{ seen_by_sku[prefill].product_name if prefill in seen_by_sku else prefill }}">
   <label>ราคาทุนของ 1 {{ pb.unit_label if pb else 'หน่วย' }} (บาท) <input name="unit_cost" required inputmode="decimal" placeholder="เช่น 60" {% if prefill %}autofocus{% endif %}></label>
   <label>มีผลตั้งแต่ <input type="date" name="effective_from" value="{{ today }}" required></label>
   <button type="submit">บันทึกราคาทุน</button>
 </form>
 {% if pb %}<p class="hint">ใส่ราคาทุนต่อ 1 {{ pb.unit_label }} เท่านั้น ระบบคูณจำนวนหน่วยของแต่ละรายการขายให้เอง (เช่น โปร 2 แถม 2 = × 4)</p>{% endif %}
+{% endif %}
 
 {% if base_without_cost %}
 <div class="notice"><strong>สินค้าฐานที่ยังไม่มีราคาทุน:</strong> {% for b in base_without_cost %}<a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ b.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>
@@ -56,7 +58,7 @@
   {% for p in missing %}
   <tr><td>{{ p.platform }}</td><td>{{ p.product_name }}</td><td>{{ p.variant_name or '—' }}</td><td class="n">{{ p.quantity }}</td><td class="n">{{ p.order_count }}</td>
   <td>{% if p.base_product %}{{ p.base_product }} × {{ p.units_per_listing }}{% else %}—{% endif %}</td>
-  <td class="actions"><a href="/sku-costs?map={{ p.sku|urlencode }}#map-form">ผูกสินค้าฐาน</a> · <a href="/sku-costs?sku={{ p.sku|urlencode }}#cost-form">ใส่ต้นทุนตรง</a></td></tr>
+  <td class="actions"><a href="/sku-costs?map={{ p.sku|urlencode }}#map-form">ผูกสินค้าฐาน</a></td></tr>
   {% endfor %}
 </table>
 {% endif %}
@@ -79,9 +81,8 @@
 
 <h2>ราคาทุนที่ใส่แล้ว</h2>
 {% if rows %}
-<table class="grid"><tr><th>สินค้า</th><th>ประเภท</th><th class="n">ราคาทุน/หน่วย</th><th>มีผลตั้งแต่</th><th></th></tr>
-{% for r in rows %}{% set p = seen_by_sku.get(r.sku) %}<tr><td>{{ r.product_name or r.sku }}{% if p and p.variant_name %} — {{ p.variant_name }}{% endif %}<div class="sku">{{ r.sku }}</div></td>
-<td>{% if p %}รายการขาย ({{ p.platform }}){% else %}สินค้าฐาน{% endif %}</td>
+<table class="grid"><tr><th>สินค้าฐาน</th><th class="n">ราคาทุน/หน่วย</th><th>มีผลตั้งแต่</th><th></th></tr>
+{% for r in rows %}<tr><td>{{ r.sku }}</td>
 <td class="n">{{ r.unit_cost|baht }}</td><td>{{ r.effective_from.strftime('%d/%m/%Y') }}</td>
 <td class="actions"><a href="/sku-costs/{{ r.id }}/edit">แก้ไข</a>
 <form method="post" action="/sku-costs/{{ r.id }}/delete" onsubmit="return confirm('ลบราคาทุนนี้? ออเดอร์ที่ใช้ราคาทุนนี้จะกลับไปเป็น ไม่ทราบต้นทุน')"><button class="danger" type="submit">ลบ</button></form></td></tr>{% endfor %}</table>
