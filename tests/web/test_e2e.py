@@ -43,7 +43,9 @@ def test_upload_then_dashboard_shows_profit(client):
     inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["A1", "2026-09-15", 285]])
     r = client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("inc.xlsx", inc)}, follow_redirects=False)
     assert r.status_code == 303
-    ords = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"], ["A1", "2026-09-10", "ครีม", "PNC-001", 2]])
+    before = client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
+    assert "ไฟล์ที่ต้อง export" in before and "รายงานคำสั่งซื้อ (ทั้งหมด)" in before and "16/08/2026 – 15/09/2026" in before
+    ords =_xlsx([["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"], ["A1", "2026-09-10", "ครีม", "PNC-001", 2]])
     client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"}, files={"file": ("ord.xlsx", ords)})
     costs = client.get("/sku-costs").text
     assert "ยังไม่มีต้นทุน" in costs and "ผูกสินค้าฐาน" in costs and "ใส่ต้นทุนตรง" not in costs

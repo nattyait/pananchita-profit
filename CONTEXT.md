@@ -31,6 +31,7 @@
 | **OrderProfit** | กำไรสุทธิต่อออเดอร์ = OrderContribution − allocated Expense | ตัวเลขที่ตอบว่า "ออเดอร์นี้กำไรจริงไหม" |
 | **PeriodPnl** | สรุปช่วงเวลา (ต่อ platform หรือรวม): Σ net_received, Σ COGS, Expense แต่ละ kind, กำไรสุทธิ | ตัวเลขบนหน้า Dashboard |
 | **PendingOrder** | ออเดอร์ที่มี OrderLine ที่ไม่ถูกยกเลิก แต่ยังไม่มี Settlement (เช่น COD ยังไม่ปล่อยเงิน) | แสดงเป็น "รอรับเงิน" เสมอ |
+| **MissingReport** | ไฟล์ที่พนักงานควร export เพิ่ม: Platform + ReportKind + ช่วงวันที่ (กรองตาม `ordered_at` หรือ `settled_at`) + จำนวนออเดอร์ | Settlement ไม่มี OrderLine → `orders` ตาม ordered_at; PendingOrder → `income` ตาม settled_at; คำนวณใน `domain/missing_reports.py` |
 | **ImportProblem** | สิ่งที่ parser แปลงไม่ได้/หาคอลัมน์ไม่เจอ/SKU ไม่มีต้นทุน | ต้องแสดงให้ผู้ใช้เห็น ห้ามข้าม |
 | **ColumnMapping** | ไฟล์ `config/platforms/<platform>.yaml` บอกว่า field ไหนอ่านจากหัวคอลัมน์ชื่ออะไรได้บ้าง | ข้อมูล ไม่ใช่โค้ด |
 
