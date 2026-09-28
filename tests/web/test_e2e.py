@@ -39,6 +39,24 @@ def test_cost_form_saves_when_base_product_typed_without_hidden_name(client):
     assert r.status_code == 200 and "95.00" in r.text
 
 
+def test_bulk_mapping_suggests_base_product_for_renamed_promo_listing(client):
+    head = ["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"]
+    old = _xlsx([head, ["A1", "2026-08-10", "[โปร2แถม2] ครีมหน้าใส", "", 1]])
+    client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"}, files={"file": ("o1.xlsx", old)})
+    client.post("/listing-maps", data={"sku": "[โปร2แถม2] ครีมหน้าใส", "base_product": "ครีมหน้าใส", "unit_label": "กล่อง", "units_per_listing": "4"})
+    new = _xlsx([head, ["A2", "2026-09-10", "[โปร3แถม2] ครีมหน้าใส", "", 1], ["A3", "2026-09-11", "ชาไทย", "", 1]])
+    client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"}, files={"file": ("o2.xlsx", new)})
+    assert 'href="/listing-maps/bulk"' in client.get("/sku-costs").text
+    page = client.get("/listing-maps/bulk").text
+    assert 'value="ครีมหน้าใส" placeholder' in page and 'value="5"' in page and "ชาไทย" in page
+    r = client.post("/listing-maps/bulk", data={"sku": ["[โปร3แถม2] ครีมหน้าใส", "ชาไทย"], "base_product": ["ครีมหน้าใส", ""],
+                                                 "units_per_listing": ["5", ""]})
+    assert r.status_code == 200 and "บันทึกแล้ว 1 รายการ" in r.text
+    assert "[โปร3แถม2] ครีมหน้าใส" not in r.text and "ชาไทย" in r.text  # saved row leaves the list, blank row stays
+    costs = client.get("/sku-costs").text
+    assert "× 5 กล่อง" in costs
+
+
 def test_upload_then_dashboard_shows_profit(client):
     inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["A1", "2026-09-15", 285]])
     r = client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("inc.xlsx", inc)}, follow_redirects=False)
