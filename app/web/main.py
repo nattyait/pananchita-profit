@@ -89,7 +89,9 @@ def download(s: Db, upload_id: int):
 
 @app.get("/sku-costs", response_class=HTMLResponse)
 def sku_costs(request: Request, s: Db):
-    return _render(request, "sku_costs.html", rows=db.list_sku_cost_rows(s), missing=db.known_skus_without_cost(s), today=date.today())
+    seen = db.products_seen(s)
+    return _render(request, "sku_costs.html", rows=db.list_sku_cost_rows(s), missing=[p for p in seen if not p.has_cost],
+                   seen_by_sku={p.sku: p for p in seen}, today=date.today(), prefill=request.query_params.get("sku", ""))
 
 
 @app.post("/sku-costs")
