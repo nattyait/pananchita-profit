@@ -101,7 +101,7 @@ def sku_costs(request: Request, s: Db):
                    base_products=base_products, base_without_cost=[b for b in base_products if b.name not in have],
                    listings_by_base={b.name: [p for p in seen if p.base_product == b.name] for b in base_products},
                    map_sku=request.query_params.get("map", ""), rename=request.query_params.get("rename", ""),
-                   deletable=DeleteUnusedBaseProduct(s).deletable(),
+                   deletable=DeleteUnusedBaseProduct(s).deletable(), taken=request.query_params.get("taken", ""),
                    latest_cost={r.sku: r.unit_cost for r in sorted(db.list_sku_cost_rows(s), key=lambda r: r.effective_from)})
 
 
@@ -142,6 +142,8 @@ def rename_base_product(s: Db, old: Annotated[str, Form()], new: Annotated[str, 
     result = RenameBaseProduct(s).run(old=old.strip(), new=new.strip(), unit_label=unit_label.strip())
     if result == "merge":
         return RedirectResponse(f"/base-products/merge?source={quote(old.strip())}&target={quote(new.strip())}", status_code=303)
+    if result == "taken":
+        return RedirectResponse(f"/sku-costs?rename={quote(old.strip())}&taken={quote(new.strip())}#rename-form", status_code=303)
     return RedirectResponse("/sku-costs", status_code=303)
 
 

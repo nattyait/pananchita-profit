@@ -24,6 +24,7 @@
 
 {% if rename %}{% set rb = (base_products|selectattr('name', 'equalto', rename)|first) %}
 <h2 id="rename-form">แก้ชื่อ/หน่วยสินค้าฐาน</h2>
+{% if taken %}<div class="notice bad">ใช้ชื่อ "{{ taken }}" ไม่ได้ เพราะมีราคาทุนในชื่อนี้อยู่แล้วในตาราง "ราคาทุนที่ใส่แล้ว" (ไม่มีสินค้าฐานคู่กัน) ลบแถวนั้นก่อน หรือใช้ชื่ออื่น</div>{% endif %}
 <form class="inline" method="post" action="/base-products/rename">
   <input type="hidden" name="old" value="{{ rename }}">
   <label>ชื่อสินค้าฐาน <input name="new" required value="{{ rename }}" style="min-width:22rem" autofocus></label>

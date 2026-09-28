@@ -78,6 +78,10 @@ def test_merge_base_products_and_rename_into_existing_name(client):
     client.post("/base-products/merge", data={"source": "[3ถุง] น้ำยา", "target": "น้ำยา", "confirmed": "1"})
     costs = client.get("/sku-costs").text
     assert "[3ถุง] น้ำยา<div" not in costs and "= ต้นทุน 288.00 / ชิ้น" in costs and "= ต้นทุน 576.00 / ชิ้น" in costs
+    # renaming onto a name that only has orphan cost rows gives a message, not a server error
+    client.post("/sku-costs", data={"sku": "ชื่อที่มีแต่ราคา", "unit_cost": "1", "effective_from": "2026-05-01"})
+    r = client.post("/base-products/rename", data={"old": "กาแฟ", "new": "ชื่อที่มีแต่ราคา", "unit_label": ""})
+    assert r.status_code == 200 and "ใช้ชื่อ" in r.text and "ไม่ได้" in r.text
     # a name that an unmapped order uses as its own ProductKey cannot be merged away
     client.post("/listing-maps/delete", data={"sku": "[1ลัง] น้ำยา"})
     client.post("/listing-maps", data={"sku": "[โปร2แถม2] กาแฟ", "base_product": "[1ลัง] น้ำยา", "units_per_listing": "1"})

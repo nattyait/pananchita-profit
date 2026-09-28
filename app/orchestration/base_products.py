@@ -72,9 +72,12 @@ class RenameBaseProduct:
         self.s = session
 
     def run(self, *, old: str, new: str, unit_label: str) -> str:
-        """"renamed", or "merge" when the new name already belongs to another BaseProduct."""
+        """"renamed"; "merge" when the new name already belongs to another BaseProduct; "taken" when SkuCost rows
+        already use the new name without a BaseProduct (renaming would collide with them)."""
         if new != old and any(b.name == new for b in db.list_base_products(self.s)):
             return "merge"
+        if new != old and any(c.sku == new for c in db.all_sku_costs(self.s)):
+            return "taken"
         db.rename_base_product(self.s, old=old, new=new, unit_label=unit_label)
         self.s.commit()
         return "renamed"
