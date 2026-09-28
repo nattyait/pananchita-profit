@@ -12,6 +12,8 @@
 | **line_amount** | ราคาขายสุทธิต่อชิ้น × จำนวน ของ OrderLine ใช้เป็นน้ำหนักแบ่งเงินของออเดอร์ลงแต่ละบรรทัด | ADR-0004; ไม่ใช่รายได้ |
 | **OrderLineProfit** | ส่วนของ OrderProfit ที่ตกกับ 1 บรรทัดสินค้า: share ของ net_received − COGS − share ของ Expense | Σ ทุกบรรทัด = OrderProfit |
 | **ProductPnl** | สรุปต่อ ProductKey ในช่วงเวลา: ชิ้น, net_received, COGS, Expense, กำไร | มาจาก OrderLineProfit เท่านั้น |
+| **BaseProduct** | สินค้าจริงที่ใส่ต้นทุน: ชื่อไม่ซ้ำ + หน่วย (กล่อง/ถุง) ตั้งแยกต่อแพลตฟอร์มได้ | ADR-0006; ต้นทุนเก็บใน SkuCost โดยใช้ชื่อเป็นคีย์ |
+| **ListingMap** | ProductKey → BaseProduct, units_per_listing (หน่วยฐานต่อ 1 ชิ้นที่ขาย), unit_price (ไว้ดู) | ADR-0006 |
 | **ProductKey** | ตัวตนของสินค้าที่ใช้ผูก SkuCost = SKU ถ้ามี, ถ้าว่าง = `"ชื่อสินค้า | ชื่อตัวเลือก"` | ADR-0003; เก็บในฟิลด์ `sku` |
 | **cancelled** | parser ของ platform แปลงสถานะออเดอร์เป็น true/false; domain ไม่รู้จักคำว่า "ยกเลิกแล้ว" | สถานะที่ถือว่ายกเลิกอยู่ใน ColumnMapping |
 | **Settlement** | เงินที่ platform **ปล่อยจริง** ให้ 1 ออเดอร์ 1 ครั้ง: net_received (สุทธิหลังหักทุกอย่าง), settled_at, และรายละเอียดค่าธรรมเนียม | **แหล่งรายได้แหล่งเดียวของระบบ** |
@@ -20,7 +22,7 @@
 | **ordered_at** | วันที่ลูกค้าสั่ง | ใช้เลือก SkuCost ที่มีผล ณ วันนั้น ไม่ใช้เลือกช่วง P&L |
 | **fee breakdown** | commission_fee, service_fee, transaction_fee, affiliate_fee, tax_fee, platform_fee, ads_fee, shipping_fee_diff, other_adjustment | เก็บไว้เพื่ออธิบาย ไม่ใช่เพื่อคำนวณ net_received |
 | **SkuCost** | ต้นทุนต่อชิ้นของ SKU มีผลตั้งแต่ effective_from | effective-dated; ไม่แก้ย้อนหลัง เพิ่มแถวใหม่แทน |
-| **COGS** | ต้นทุนสินค้าของออเดอร์ = Σ quantity × SkuCost ที่มีผล ณ ordered_at | ถ้า SKU ไม่มีต้นทุน → เป็น "ปัญหา" ไม่ใช่ 0 |
+| **COGS** | ต้นทุนสินค้าของออเดอร์ = Σ quantity × (units_per_listing × SkuCost ของ BaseProduct ถ้า map ไว้ ไม่งั้น SkuCost ของ ProductKey) ณ ordered_at | ถ้า SKU ไม่มีต้นทุน → เป็น "ปัญหา" ไม่ใช่ 0 |
 | **Expense** | ค่าใช้จ่ายตามช่วงเวลา: kind (`ads`, `staff`, `tax`, `other`), amount, incurred_on, platform (หรือ `shared`), source_ref | เข้าคิด P&L ตาม incurred_on |
 | **PlatformCharge** | Expense ที่แพลตฟอร์มหักจากยอดโอนโดยไม่ผูกออเดอร์ (เช่น ค่าแอด GMV Max ของ TikTok) นำเข้าจากรายงานรายได้; `source_ref` = `<platform>:<transaction id>` กันซ้ำ | ADR-0005 |
 | **shared** | ค่าใช้จ่ายที่ไม่ผูกกับ platform เดียว เช่น เงินเดือน ภาษี | ถูก **allocate** ตามสัดส่วน net_received |
