@@ -33,3 +33,12 @@ def test_units_above_threshold_are_suspicious():
     assert SUSPICIOUS_UNITS == 20
     assert suspicious_listing_skus(MAPS) == frozenset({"CAL | สตอเบอรี่ 1กล่อง"})
     assert base_product_detail(_report(), MAPS, "CALCIUM PLUS").listings[0].suspicious
+
+
+def test_fully_returned_orders_are_labelled_and_sorted_after_real_ones():
+    settlements = (Settlement(Platform.TIKTOK, "R", D, 0), Settlement(Platform.TIKTOK, "B", D, 90000))
+    lines = (OrderLine(Platform.TIKTOK, "R", 1, "CAL | 2แถม2", 0, D), OrderLine(Platform.TIKTOK, "B", 1, "CAL | 2แถม2", 1, D))
+    report = build_report(period_start=date(2026, 9, 1), period_end=date(2026, 9, 30), settlements=settlements, order_lines=lines,
+                          sku_costs=(SkuCost("CALCIUM PLUS", 19500, date(2026, 5, 1)),), expenses=(), listing_maps=MAPS)
+    d = base_product_detail(report, MAPS, "CALCIUM PLUS")
+    assert [(ln.order_id, ln.empty_return) for ln in d.lines] == [("B", False), ("R", True)]
