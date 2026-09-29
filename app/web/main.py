@@ -14,12 +14,13 @@ from sqlalchemy.orm import Session
 
 from app.domain.base_product_detail import suspicious_listing_skus
 from app.domain.dates import utc_to_local
-from app.domain.money import baht, parse_money
+from app.domain.money import baht, parse_money, parse_percent_bp, percent
 from app.domain.types import SHARED, ExpenseKind, Platform, ReportKind
 from app.effects import clock, db, file_store
 from app.orchestration.base_products import DeleteUnusedBaseProduct, MergeBaseProducts, RenameBaseProduct
 from app.orchestration.import_report import ImportReport
 from app.orchestration.listing_maps import BulkMapListings
+from app.orchestration.pricing import PricingRequest, SimulatePrice
 from app.orchestration.profit_report import BuildBaseProductDetail, BuildProfitReport
 from app.web import settings
 
@@ -27,6 +28,7 @@ app = FastAPI(title="Pananchita Profit")
 app.mount("/static", StaticFiles(directory=settings.STATIC), name="static")
 templates = Jinja2Templates(directory=settings.TEMPLATES)
 templates.env.filters["baht"] = baht
+templates.env.filters["percent"] = percent
 templates.env.filters["shop_time"] = lambda instant: utc_to_local(instant, clock.SHOP_TZ)
 templates.env.globals.update(
     PLATFORMS=[(p.value, name) for p, name in ((Platform.SHOPEE, "Shopee"), (Platform.TIKTOK, "TikTok"), (Platform.FACEBOOK, "Facebook"))],
@@ -75,6 +77,32 @@ def base_product_detail_page(request: Request, s: Db, name: str, start: date | N
     detail = BuildBaseProductDetail(s).run(name=name, start=start, end=end, platform=chosen)
     back = f"/base-products/detail?name={quote(name)}&start={start}&end={end}&platform={quote(platform)}"
     return _render(request, "base_product_detail.html", detail=detail, start=start, end=end, platform=platform, back=back)
+
+
+@app.get("/pricing", response_class=HTMLResponse)
+def pricing(request: Request, s: Db):
+    q = request.query_params
+    bad: list[str] = []
+
+    def read(name: str, parse, default=None):
+        text = q.get(name, "").strip()
+        if not text:
+            return default
+        try:
+            return parse(text)
+        except (ValueError, ArithmeticError):
+            bad.append(name)
+            return default
+
+    overrides = {f: v for f, v in (("commission_bp", read("commission", parse_percent_bp)), ("transaction_bp", read("transaction", parse_percent_bp)),
+                                   ("service_bp", read("service", parse_percent_bp)), ("fixed_per_order", read("fixed", parse_money)),
+                                   ("ads_bp", read("ads", parse_percent_bp))) if v is not None}
+    req = PricingRequest(base_product=q.get("base", ""), units=max(read("units", int, 1), 1), list_price=read("list_price", parse_money),
+                         shop_discount_bp=read("shop_discount", parse_percent_bp, 0), shop_coupon=read("shop_coupon", parse_money, 0),
+                         platform_discount_bp=read("platform_discount", parse_percent_bp, 0), affiliate_bp=read("affiliate", parse_percent_bp, 0),
+                         target_profit=read("target", parse_money, 0), rate_overrides=overrides)
+    result = SimulatePrice(s).run(req, today=clock.today_local())
+    return _render(request, "pricing.html", r=result, req=req, q=q, bad=bad)
 
 
 @app.get("/upload", response_class=HTMLResponse)

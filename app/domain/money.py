@@ -42,3 +42,18 @@ def baht(satang: int) -> str:
     sign = "-" if satang < 0 else ""
     satang = abs(satang)
     return f"{sign}{satang // 100:,}.{satang % 100:02d}"
+
+
+def parse_percent_bp(value: object) -> int:
+    """'10.7' | '8.03 %' → basis points (1070, 803). Raises ValueError."""
+    text = str(value).replace("%", "").strip()
+    if not text:
+        raise ValueError("empty")
+    return int((Decimal(text) * 100).quantize(Decimal("1"), ROUND_HALF_UP))
+
+
+def percent(bp: int) -> str:
+    """Basis points → '10.70'."""
+    sign = "-" if bp < 0 else ""
+    bp = abs(bp)
+    return f"{sign}{bp // 100}.{bp % 100:02d}"
