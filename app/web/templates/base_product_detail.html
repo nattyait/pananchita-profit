@@ -26,17 +26,22 @@
   {% endfor %}
 </table>
 
-<h2>ออเดอร์ <span class="tag wait">{{ detail.lines|length }}</span></h2>
-<p class="hint">เรียงจากขาดทุนมากสุดก่อน ออเดอร์ที่คืนสินค้าทั้งหมดอยู่ท้ายตาราง</p>
-{% if detail.lines %}
+<h2>ออเดอร์ <span class="tag wait">{{ detail.orders|length }}</span></h2>
+<p class="hint">1 แถวต่อ 1 ออเดอร์ รวมทุกครั้งที่เงินเข้าหรือถูกดึงคืนในช่วงนี้ (เช่น ได้เงินแล้วลูกค้าคืนของ) เรียงจากขาดทุนมากสุดก่อน ออเดอร์ที่คืนสินค้าทั้งหมดและไม่มีเงินขยับอยู่ท้ายตาราง</p>
+{% if detail.orders %}
 <table class="grid">
   <tr><th>วันที่ได้เงิน</th><th>แพลตฟอร์ม</th><th>เลขออเดอร์</th><th>รายการขาย</th><th class="n">ชิ้น</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">กำไรก่อนหักค่าใช้จ่าย</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
-  {% for ln in detail.lines %}
-  <tr class="{% if ln.empty_return %}{% elif ln.profit < 0 %}loss{% else %}gain{% endif %}"><td>{{ ln.settled_at.strftime('%d/%m/%y') }}</td><td>{{ ln.platform.value }}</td><td>{{ ln.order_id }}</td>
-    <td class="sku">{{ ln.sku }}</td>
-    {% if ln.empty_return %}<td class="n" colspan="6"><span class="tag returned">คืนสินค้าทั้งหมด</span> ไม่ได้เงินและไม่มีต้นทุน</td></tr>
-    {% else %}<td class="n">{{ ln.pieces }} × {{ ln.units_per_listing }}</td><td class="n">{{ ln.net_received|baht }}</td><td class="n">{{ ln.cogs|baht }}</td>
-    <td class="n">{{ ln.contribution|baht }}</td><td class="n">{{ ln.expense|baht }}</td><td class="n profit">{{ ln.profit|baht }}</td></tr>{% endif %}
+  {% for o in detail.orders %}
+  <tr class="{% if o.empty_return %}{% elif o.profit < 0 %}loss{% else %}gain{% endif %}">
+    <td>{{ o.first_settled_at.strftime('%d/%m/%y') }}{% if o.settlement_count > 1 %}–{{ o.last_settled_at.strftime('%d/%m/%y') }}<div class="sku">{{ o.settlement_count }} ครั้ง</div>{% endif %}</td>
+    <td>{{ o.platform.value }}</td><td>{{ o.order_id }}</td>
+    <td class="sku">{% for k in o.skus %}<div>{{ k }}</div>{% endfor %}</td>
+    {% if o.empty_return %}<td class="n" colspan="6"><span class="tag returned">คืนสินค้าทั้งหมด</span> ไม่ได้เงินและไม่มีต้นทุน</td></tr>
+    {% else %}
+    <td class="n">{% if o.fully_returned %}<span class="tag returned">คืนสินค้าทั้งหมด</span>{% elif o.skus|length == 1 %}{{ o.pieces }} × {{ o.units_per_listing[0] }}{% else %}{{ o.pieces }}{% endif %}</td>
+    <td class="n">{{ o.net_received|baht }}{% if o.clawed_back %}<div class="sku">ได้ {{ o.received|baht }} · ดึงคืน {{ o.clawed_back|baht }}</div>{% endif %}</td>
+    <td class="n">{{ o.cogs|baht }}</td><td class="n">{{ o.contribution|baht }}</td>
+    <td class="n">{{ o.expense|baht }}</td><td class="n profit">{{ o.profit|baht }}</td></tr>{% endif %}
   {% endfor %}
 </table>
 {% else %}<p class="hint">ไม่มีออเดอร์ที่คิดต้นทุนได้ครบในช่วงนี้</p>{% endif %}

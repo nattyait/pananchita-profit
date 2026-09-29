@@ -233,3 +233,20 @@ def test_detail_page_labels_returns_and_unsold_listings(client):
     client.post("/sku-costs", data={"sku": "กาแฟ", "unit_cost": "110", "effective_from": "2026-01-01"})
     page = client.get("/base-products/detail", params={"name": "กาแฟ", "start": "2026-09-01", "end": "2026-09-30"}).text
     assert "คืนสินค้าทั้งหมด" in page and "0 × 4" not in page and "ไม่มียอดขายในช่วงนี้" in page
+
+
+def test_detail_page_combines_payment_and_clawback_of_one_order(client):
+    head = ["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"]
+    client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"},
+                files={"file": ("i1.xlsx", _xlsx([head, ["T1", "2026-08-10", 670.48]]))})
+    client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"},
+                files={"file": ("i2.xlsx", _xlsx([head, ["T1", "2026-08-12", -860.04]]))})
+    ohead = ["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"]
+    client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"},
+                files={"file": ("o.xlsx", _xlsx([ohead, ["T1", "2026-08-07", "กาแฟ 3แถม2", "", 0]]))})
+    client.post("/listing-maps", data={"sku": "กาแฟ 3แถม2", "base_product": "กาแฟ", "unit_label": "กล่อง", "units_per_listing": "5"})
+    client.post("/sku-costs", data={"sku": "กาแฟ", "unit_cost": "110", "effective_from": "2026-01-01"})
+    page = client.get("/base-products/detail", params={"name": "กาแฟ", "start": "2026-08-01", "end": "2026-08-31"}).text
+    orders = page[page.find("<h2>ออเดอร์"):]
+    assert orders.count("<td>T1</td>") == 1 and "2 ครั้ง" in orders and "-189.56" in orders
+    assert "ได้ 670.48 · ดึงคืน -860.04" in orders
