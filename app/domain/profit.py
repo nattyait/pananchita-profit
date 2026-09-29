@@ -197,7 +197,8 @@ def build_report(
     listing_maps: tuple[ListingMap, ...] = (),
 ) -> ProfitReport:
     maps = {m.sku: m for m in listing_maps}
-    settled = [s for s in settlements if in_period(s.settled_at, period_start, period_end) and (platform is None or s.platform == platform)]
+    settled_any_platform = [s for s in settlements if in_period(s.settled_at, period_start, period_end)]
+    settled = [s for s in settled_any_platform if platform is None or s.platform == platform]
     period_expenses = [e for e in expenses if in_period(e.incurred_on, period_start, period_end)]
     lines_by_order: dict[tuple[str, str], list[OrderLine]] = defaultdict(list)
     for ln in order_lines:
@@ -209,25 +210,30 @@ def build_report(
     for s in settled:
         net_by_platform[s.platform.value] += s.net_received
     platforms_present = list(net_by_platform) or ([platform.value] if platform else [])
+    # shared expense is split across ALL platforms, so a filtered view shows the same share as the "all" view
+    net_all_platforms: dict[str, int] = defaultdict(int)
+    for s in settled_any_platform:
+        net_all_platforms[s.platform.value] += s.net_received
 
     # --- expenses → platform (ADR-0002) ---
     exp_by_platform: dict[str, dict[ExpenseKind, int]] = {p: defaultdict(int) for p in platforms_present}
     unallocated_shared: dict[ExpenseKind, int] = defaultdict(int)
     for e in period_expenses:
         if e.platform == SHARED:
-            shares = split_proportionally(e.amount, dict(net_by_platform))
+            shares = split_proportionally(e.amount, dict(net_all_platforms))
             if not shares:
                 unallocated_shared[e.kind] += e.amount
             for p, amt in shares.items():
-                exp_by_platform[p][e.kind] += amt
+                if platform is None or p == platform.value:
+                    exp_by_platform.setdefault(p, defaultdict(int))[e.kind] += amt
         elif platform is None or e.platform == platform.value:
             exp_by_platform.setdefault(e.platform, defaultdict(int))[e.kind] += e.amount
 
-    # --- expenses → orders within platform ---
-    alloc_by_order: dict[tuple[str, str], int] = {}
+    # --- expenses → each Settlement within platform, by its own net_received (an order paid twice is not charged twice) ---
+    alloc: dict[tuple[str, str, date], int] = {}
     for p, kinds in exp_by_platform.items():
-        weights = {(s.platform.value, s.order_id): s.net_received for s in settled if s.platform.value == p}
-        alloc_by_order.update(split_proportionally(sum(kinds.values()), weights))
+        weights = {s.settlement_key: s.net_received for s in settled if s.platform.value == p}
+        alloc.update(split_proportionally(sum(kinds.values()), weights))
 
     # --- OrderProfit ---
     orders: list[OrderProfit] = []
@@ -253,9 +259,9 @@ def build_report(
                 platform=s.platform, order_id=s.order_id, settled_at=s.settled_at,
                 ordered_at=min(ln.ordered_at for ln in lines) if lines else None,
                 net_received=s.net_received, cogs=cogs,
-                allocated_expense=alloc_by_order.get(key, 0), fee_total=_fee_total(s),
+                allocated_expense=alloc.get(s.settlement_key, 0), fee_total=_fee_total(s),
                 quantity=sum(ln.quantity for ln in lines),
-                lines=split_order_lines(lines, s.net_received, alloc_by_order.get(key, 0), sku_costs, maps),
+                lines=split_order_lines(lines, s.net_received, alloc.get(s.settlement_key, 0), sku_costs, maps),
             )
         )
 

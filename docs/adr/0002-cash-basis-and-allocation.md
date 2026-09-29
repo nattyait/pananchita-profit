@@ -26,3 +26,16 @@ Status: Accepted · Date: 2026-09-27
 ## Consequences
 - ตัวเลขกำไรของเดือนจะ "ครบ" ก็ต่อเมื่อรายงานรายได้ของเดือนนั้นครบ — UI ต้องบอกวันที่ข้อมูลล่าสุด
 - ออเดอร์ที่ยังไม่ปล่อยเงินแสดงเป็น PendingOrder ไม่เข้ากำไร
+
+## Amendment 2026-09-29 (owner approved)
+1. **Filtered view = same share as the "all" view.** A `shared` Expense is always split across *all* platforms by their
+   Σ net_received in the period, then a single-platform view keeps only that platform's share. Before, a filtered view
+   gave the whole shared Expense to the one visible platform, understating its profit.
+2. **Split per Settlement, not per order.** Within a platform the Expense is split across Settlements (key
+   `settlement_key`) by each Settlement's own net_received, as rule 3 above already says. The old code keyed weights by
+   (platform, order_id): an order with several Settlements in the period took the weight of its last one and received
+   that share on every row (double-charged when the last was positive; nothing when it was a clawback).
+   Settlements with net_received ≤ 0 (clawbacks) still get no share.
+3. Invariant unchanged and tested: `Σ OrderProfit == PeriodPnl.net_profit` when all COGS are known.
+Not changed here: COGS is still computed per Settlement; an order with several Settlements that keeps pieces would count
+COGS more than once. No live order is affected (2026-09-28: all 6 multi-Settlement orders are full returns, COGS 0).
