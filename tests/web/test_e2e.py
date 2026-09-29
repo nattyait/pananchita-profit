@@ -119,7 +119,7 @@ def test_tiktok_ads_statement_adds_card_bills_once(client):
     expenses = client.get("/expenses").text
     assert expenses.count("13,584.52") == 1 and "181.83" in expenses and "16,107.00" not in expenses and "1,600.00" not in expenses
     r = client.post("/upload", data={"platform": "shopee", "kind": "ads", "uploaded_by": "เก๋"}, files={"file": ("x.xlsx", _xlsx([head]))})
-    assert "ยังไม่รองรับรายงานชนิด" in r.text
+    assert "หาแถวหัวคอลัมน์ไม่เจอ" in r.text  # a TikTok statement uploaded as Shopee is rejected, not guessed
 
 
 def test_base_product_detail_finds_and_fixes_a_units_typo(client):
@@ -265,3 +265,27 @@ def test_pricing_page_simulates_and_finds_the_minimum_full_price(client):
     assert "ยังไม่มีราคาทุน" in client.get("/pricing", params={"base": "ไม่มีราคา"}).text
     bad = client.get("/pricing", params={**params, "shop_discount": "abc"}).text
     assert "อ่านค่าบางช่องไม่ได้" in bad
+
+
+SHOPEE_ADS_CSV = """\ufeffประวัติการทำธุรกรรม Shopee Ads
+สกุลเงิน:,THB
+Username:,shop
+ช่วงเวลา:,29/06/2026 -- 29/09/2026
+Shop ID:,1
+
+อันดับ,เวลา,รายละเอียด,จำนวน,Remark
+1,29/09/2026,Deduction for Product Ad (Auto Bidding - GMV Max),-478.01,-
+2,27/09/2026,เติมเครดิต,1000.00,-
+3,29/06/2026,เติมเครดิตอัตโนมัติ (Escrow),17.00,-
+"""
+
+
+def test_shopee_ads_statement_adds_only_shop_paid_top_ups_once(client):
+    data = SHOPEE_ADS_CSV.encode("utf-8")
+    r = client.post("/upload", data={"platform": "shopee", "kind": "ads", "uploaded_by": "เก๋"}, files={"file": ("shop_adwords_bill.csv", data)})
+    assert "นำเข้าค่าแอด 1 รายการ" in r.text and "478.01" in r.text and "Escrow" in r.text
+    again = SHOPEE_ADS_CSV.replace("3,29/06/2026", "4,30/06/2026,โฆษณาแบบเลือกสินค้าอัตโนมัติ,-4.48,-\n3,29/06/2026").encode("utf-8")
+    r = client.post("/upload", data={"platform": "shopee", "kind": "ads", "uploaded_by": "เก๋"}, files={"file": ("shop_adwords_bill2.csv", again)})
+    assert "นำเข้าค่าแอด 0 รายการ (ข้าม 1 รายการที่เคยนำเข้าแล้ว)" in r.text
+    expenses = client.get("/expenses").text
+    assert expenses.count("1,000.00") == 1 and "17.00" not in expenses and "478.01" not in expenses

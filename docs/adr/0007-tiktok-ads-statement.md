@@ -30,3 +30,18 @@ Status: Accepted · Date: 2026-09-29
 - (−) ถ้า TikTok เปลี่ยนคำใน Description หรือเพิ่มวิธีจ่ายใหม่ แถวนั้นจะขึ้นเป็นปัญหาจนกว่าจะเพิ่มลง yaml
 - (−) คอลัมน์ Account name ไม่ถูก map/เก็บ (อยู่แค่ในไฟล์ดิบ)
 - ไม่มีการเปลี่ยน schema; ใช้ตาราง expenses + source_ref เดิม
+
+## Amendment 2026-09-29: Shopee Ads wallet statement
+Shopee Ads is a prepaid wallet. Its export (`<username>_adwords_bill_<date>.csv`, metadata lines then a header
+`อันดับ,เวลา,รายละเอียด,จำนวน,Remark`) mixes three kinds of rows:
+- negative rows — ad credit being used day by day (GMV Max, auto ads, shop ads, Live Ads …) → **skipped**, not new cash;
+- `เติมเครดิตอัตโนมัติ (Escrow)` — top-up deducted from the payout, already in the Shopee income report as
+  `ค่าธรรมเนียมเติมเงินโฆษณาจากเงิน Escrow` (Settlement.ads_fee) → **skipped**;
+- `เติมเครดิต` — the shop tops up with its own money → **ads Expense** for Shopee on that day.
+Same cash-basis rule as TikTok: an ad Expense is money that left the shop outside the payout. Recording daily spend
+as well would count the same money twice (once at top-up, once when used).
+Any other positive row (e.g. an ads refund) is an ImportProblem, never guessed. Skipped rows are counted on the upload.
+The file has no transaction id, so `source_ref = "shopee-ads:<date>:<description>:<satang>:<n>"` where n numbers
+identical rows within the file — an overlapping later export produces the same refs and adds nothing twice.
+Parser `shopee.parse_ads`, options in `config/platforms/shopee.yaml › reports.ads`.
+Consequence: a large top-up lands in the month it was paid even if the credit is used later — cash basis, as ADR-0002.
