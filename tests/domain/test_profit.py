@@ -191,3 +191,13 @@ def test_missing_cost_problem_names_what_to_fix():
     maps = {"โลชั่น | 1หลอด": ListingMap("โลชั่น | 1หลอด", "LOVE STORY", 1)}
     _, problems = cogs_for(lines, (), maps)
     assert [(p.field, p.key) for p in problems] == [("sku", "กาแฟ | 3แถม2"), ("base_product", "LOVE STORY")]
+
+
+def test_contribution_is_net_received_minus_cogs_before_expense_on_every_row_kind():
+    from app.domain.base_product_detail import BaseProductLine, ListingBreakdown
+    from app.domain.profit import OrderLineProfit, ProductPnl
+    assert OrderLineProfit("S", "x", 1, 56413, 55000, 6867).contribution == 1413
+    assert OrderLineProfit("S", "x", 1, 56413, None, 6867).contribution is None
+    assert ProductPnl("S", "x", 1, 1, 56413, 55000, 6867).contribution == 1413
+    assert ListingBreakdown("S", 5, 1, 1, 56413, 55000, 6867).contribution == 1413
+    assert BaseProductLine(date(2026, 8, 10), Platform.TIKTOK, "O", "S", 1, 5, 56413, 55000, 6867).contribution == 1413

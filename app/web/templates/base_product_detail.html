@@ -11,7 +11,7 @@
 <h2>รายการขายที่ผูกไว้</h2>
 <table class="grid">
   <tr><th>รายการขาย</th><th class="n">หน่วยต่อ 1 ชิ้นที่ขาย</th><th class="n">ออเดอร์</th><th class="n">ชิ้นที่ขาย</th><th class="n">หน่วยฐาน</th>
-      <th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
+      <th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">กำไรก่อนหักค่าใช้จ่าย</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
   {% for r in detail.listings %}
   <tr class="{% if r.order_count == 0 %}{% elif r.net_profit < 0 %}loss{% else %}gain{% endif %}">
     <td class="sku">{{ r.sku }}{% if r.suspicious %} <span class="tag failed">จำนวนหน่วยสูงผิดปกติ</span>{% endif %}</td>
@@ -20,9 +20,9 @@
       <input name="units_per_listing" type="number" min="1" value="{{ r.units_per_listing }}" style="width:5rem;min-width:0"><button type="submit">บันทึก</button></form></td>
     {% if r.order_count %}
     <td class="n">{{ r.order_count }}</td><td class="n">{{ r.pieces }}</td><td class="n">{{ r.base_units }}</td>
-    <td class="n">{{ r.net_received|baht }}</td><td class="n">{{ r.cogs|baht }}</td><td class="n">{{ r.expense|baht }}</td>
+    <td class="n">{{ r.net_received|baht }}</td><td class="n">{{ r.cogs|baht }}</td><td class="n">{{ r.contribution|baht }}</td><td class="n">{{ r.expense|baht }}</td>
     <td class="n profit">{{ r.net_profit|baht }}</td></tr>
-    {% else %}<td class="n" colspan="7"><span class="tag returned">ไม่มียอดขายในช่วงนี้</span></td></tr>{% endif %}
+    {% else %}<td class="n" colspan="8"><span class="tag returned">ไม่มียอดขายในช่วงนี้</span></td></tr>{% endif %}
   {% endfor %}
 </table>
 
@@ -30,13 +30,13 @@
 <p class="hint">เรียงจากขาดทุนมากสุดก่อน ออเดอร์ที่คืนสินค้าทั้งหมดอยู่ท้ายตาราง</p>
 {% if detail.lines %}
 <table class="grid">
-  <tr><th>วันที่ได้เงิน</th><th>แพลตฟอร์ม</th><th>เลขออเดอร์</th><th>รายการขาย</th><th class="n">ชิ้น</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
+  <tr><th>วันที่ได้เงิน</th><th>แพลตฟอร์ม</th><th>เลขออเดอร์</th><th>รายการขาย</th><th class="n">ชิ้น</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">กำไรก่อนหักค่าใช้จ่าย</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
   {% for ln in detail.lines %}
   <tr class="{% if ln.empty_return %}{% elif ln.profit < 0 %}loss{% else %}gain{% endif %}"><td>{{ ln.settled_at.strftime('%d/%m/%y') }}</td><td>{{ ln.platform.value }}</td><td>{{ ln.order_id }}</td>
     <td class="sku">{{ ln.sku }}</td>
-    {% if ln.empty_return %}<td class="n" colspan="5"><span class="tag returned">คืนสินค้าทั้งหมด</span> ไม่ได้เงินและไม่มีต้นทุน</td></tr>
+    {% if ln.empty_return %}<td class="n" colspan="6"><span class="tag returned">คืนสินค้าทั้งหมด</span> ไม่ได้เงินและไม่มีต้นทุน</td></tr>
     {% else %}<td class="n">{{ ln.pieces }} × {{ ln.units_per_listing }}</td><td class="n">{{ ln.net_received|baht }}</td><td class="n">{{ ln.cogs|baht }}</td>
-    <td class="n">{{ ln.expense|baht }}</td><td class="n profit">{{ ln.profit|baht }}</td></tr>{% endif %}
+    <td class="n">{{ ln.contribution|baht }}</td><td class="n">{{ ln.expense|baht }}</td><td class="n profit">{{ ln.profit|baht }}</td></tr>{% endif %}
   {% endfor %}
 </table>
 {% else %}<p class="hint">ไม่มีออเดอร์ที่คิดต้นทุนได้ครบในช่วงนี้</p>{% endif %}

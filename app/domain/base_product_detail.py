@@ -31,6 +31,10 @@ class ListingBreakdown:
         return self.pieces * self.units_per_listing
 
     @property
+    def contribution(self) -> int:
+        return self.net_received - self.cogs
+
+    @property
     def net_profit(self) -> int:
         return self.net_received - self.cogs - self.expense
 
@@ -50,6 +54,10 @@ class BaseProductLine:
     net_received: int
     cogs: int
     expense: int
+
+    @property
+    def contribution(self) -> int:
+        return self.net_received - self.cogs
 
     @property
     def profit(self) -> int:
