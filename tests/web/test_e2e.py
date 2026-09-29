@@ -250,3 +250,18 @@ def test_detail_page_combines_payment_and_clawback_of_one_order(client):
     orders = page[page.find("<h2>ออเดอร์"):]
     assert orders.count("<td>T1</td>") == 1 and "2 ครั้ง" in orders and "-189.56" in orders
     assert "ได้ 670.48 · ดึงคืน -860.04" in orders
+
+
+def test_pricing_page_simulates_and_finds_the_minimum_full_price(client):
+    client.post("/listing-maps", data={"sku": "X", "base_product": "กาแฟ", "unit_label": "กล่อง", "units_per_listing": "1"})
+    client.post("/sku-costs", data={"sku": "กาแฟ", "unit_cost": "110", "effective_from": "2026-01-01"})
+    assert 'href="/pricing"' in client.get("/").text
+    params = {"base": "กาแฟ", "units": "5", "list_price": "1000", "shop_discount": "40", "affiliate": "10", "target": "50",
+              "commission": "10.70", "transaction": "3.21", "service": "8.03", "fixed": "1.07", "ads": "12"}
+    page = client.get("/pricing", params=params).text
+    assert "550.00" in page  # basket cost 5 × 110
+    assert "600.00" in page and "407.29" in page and "-191.58" in page  # after shop discount, net received, loss per basket
+    assert "เทียบส่วนลดแต่ละระดับ" in page and "ขาดทุนสุทธิ" in page
+    assert "ยังไม่มีราคาทุน" in client.get("/pricing", params={"base": "ไม่มีราคา"}).text
+    bad = client.get("/pricing", params={**params, "shop_discount": "abc"}).text
+    assert "อ่านค่าบางช่องไม่ได้" in bad

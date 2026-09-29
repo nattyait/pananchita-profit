@@ -6,7 +6,7 @@
 <title>{% block title %}กำไรจริง{% endblock %} · Pananchita</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/app.css?v=2026-09-29">
 </head>
 <body>
 <header class="top">
@@ -17,6 +17,7 @@
     <a href="/uploads" {% if request.url.path == '/uploads' %}aria-current="page"{% endif %}>ประวัติอัพโหลด</a>
     <a href="/sku-costs" {% if request.url.path == '/sku-costs' %}aria-current="page"{% endif %}>ต้นทุนสินค้า</a>
     <a href="/expenses" {% if request.url.path == '/expenses' %}aria-current="page"{% endif %}>ค่าใช้จ่าย</a>
+    <a href="/pricing" {% if request.url.path == '/pricing' %}aria-current="page"{% endif %}>ตั้งราคา TikTok</a>
   </nav>
 </header>
 <main>{% block body %}{% endblock %}</main>
