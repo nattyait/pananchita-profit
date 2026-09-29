@@ -54,12 +54,12 @@
 
 {% if report.by_base_product %}
 <h2>กำไรตามสินค้าฐาน</h2>
-<p class="hint">รวมรายการขายที่ผูกไว้ทุกแพลตฟอร์ม จำนวนนับเป็นหน่วยฐาน (เช่น กล่อง)</p>
+<p class="hint">รวมรายการขายที่ผูกไว้ทุกแพลตฟอร์ม จำนวนนับเป็นหน่วยฐาน (เช่น กล่อง) · กดชื่อสินค้าเพื่อดูแยกรายการขายและออเดอร์</p>
 <table class="grid">
   <tr><th>สินค้าฐาน</th><th class="n">ออเดอร์</th><th class="n">หน่วย</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th><th class="n">กำไร/หน่วย</th></tr>
   {% for name, p in report.by_base_product.items() %}
   <tr class="{% if p.net_profit < 0 %}loss{% else %}gain{% endif %}">
-    <td>{{ name }}</td><td class="n">{{ p.order_count }}</td><td class="n">{{ p.quantity }}</td>
+    <td><a href="/base-products/detail?name={{ name|urlencode }}&start={{ start }}&end={{ end }}&platform={{ platform }}">{{ name }}</a></td><td class="n">{{ p.order_count }}</td><td class="n">{{ p.quantity }}</td>
     <td class="n">{{ p.net_received|baht }}</td><td class="n">{{ p.cogs|baht }}</td><td class="n">{{ p.expense|baht }}</td>
     <td class="n profit">{{ p.net_profit|baht }}</td><td class="n">{{ (p.net_profit // p.quantity)|baht if p.quantity else '—' }}</td>
   </tr>

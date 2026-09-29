@@ -48,6 +48,9 @@
 {% if pb %}<p class="hint">ใส่ราคาทุนต่อ 1 {{ pb.unit_label }} เท่านั้น ระบบคูณจำนวนหน่วยของแต่ละรายการขายให้เอง (เช่น โปร 2 แถม 2 = × 4)</p>{% endif %}
 {% endif %}
 
+{% if suspicious %}
+<div class="notice bad"><strong>{{ suspicious|length }} รายการขายตั้งจำนวนหน่วยสูงผิดปกติ (เกิน 20 หน่วยต่อ 1 ชิ้นที่ขาย)</strong> — มักเกิดจากพิมพ์ราคาทุนลงช่องจำนวนหน่วย ต้นทุนจะสูงเกินจริงมาก ดูป้ายสีแดงในตารางสินค้าฐานด้านล่าง</div>
+{% endif %}
 {% if base_without_cost %}
 <div class="notice"><strong>สินค้าฐานที่ยังไม่มีราคาทุน:</strong> {% for b in base_without_cost %}<a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ b.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>
 {% endif %}
@@ -73,7 +76,7 @@
   <tr><td>{{ b.name }}<div class="sku">หน่วย: {{ b.unit_label }}</div></td>
   <td class="n">{% if uc is not none %}{{ uc|baht }} / {{ b.unit_label }}{% else %}<span class="tag wait">ยังไม่ใส่</span>{% endif %}</td>
   <td>{% for p in ls %}<div>{{ p.platform }} · {{ p.product_name }}{% if p.variant_name %} — {{ p.variant_name }}{% endif %}
-    <small>× {{ p.units_per_listing }} {{ b.unit_label }}{% if uc is not none %} = ต้นทุน {{ (uc * p.units_per_listing)|baht }} / ชิ้น{% endif %}</small>
+    {% if p.sku in suspicious %}<span class="tag failed">จำนวนหน่วยสูงผิดปกติ</span>{% endif %}<small>× {{ p.units_per_listing }} {{ b.unit_label }}{% if uc is not none %} = ต้นทุน {{ (uc * p.units_per_listing)|baht }} / ชิ้น{% endif %}</small>
     <form method="post" action="/listing-maps/delete" style="display:inline"><input type="hidden" name="sku" value="{{ p.sku }}"><button class="danger" type="submit" title="ยกเลิกการผูก">✕</button></form></div>{% else %}—{% endfor %}</td>
   <td class="n">{% set ns = namespace(u=0) %}{% for p in ls %}{% set ns.u = ns.u + p.quantity * p.units_per_listing %}{% endfor %}{{ ns.u }}</td>
   <td class="actions"><a href="/sku-costs?sku={{ b.name|urlencode }}#cost-form">{{ 'เปลี่ยนราคาทุน' if uc is not none else 'ใส่ราคาทุน' }}</a> · <a href="/sku-costs?rename={{ b.name|urlencode }}#rename-form">แก้ชื่อ/หน่วย</a> · <a href="/base-products/merge?source={{ b.name|urlencode }}">รวมเข้ากับ…</a>

@@ -5,6 +5,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from app.domain.base_product_detail import BaseProductDetail, base_product_detail
 from app.domain.missing_reports import MissingReport, missing_reports
 from app.domain.profit import ProfitReport, build_report
 from app.domain.types import Platform
@@ -29,3 +30,12 @@ class BuildProfitReport:
     @staticmethod
     def reports_to_export(report: ProfitReport, today: date) -> tuple[MissingReport, ...]:
         return missing_reports(report.orders, report.pending, today)
+
+
+class BuildBaseProductDetail:
+    def __init__(self, session: Session):
+        self.s = session
+
+    def run(self, *, name: str, start: date, end: date, platform: Platform | None = None) -> BaseProductDetail:
+        report = BuildProfitReport(self.s).run(start=start, end=end, platform=platform)
+        return base_product_detail(report, db.all_listing_maps(self.s), name)
