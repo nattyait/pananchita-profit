@@ -26,6 +26,10 @@ class OrderLineProfit:
     allocated_expense: int  # share
 
     @property
+    def contribution(self) -> int | None:
+        return None if self.cogs is None else self.net_received - self.cogs
+
+    @property
     def profit(self) -> int | None:
         return None if self.cogs is None else self.net_received - self.cogs - self.allocated_expense
 
@@ -104,6 +108,10 @@ class ProductPnl:
     net_received: int
     cogs: int
     expense: int
+
+    @property
+    def contribution(self) -> int:
+        return self.net_received - self.cogs
 
     @property
     def net_profit(self) -> int:

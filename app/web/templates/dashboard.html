@@ -56,11 +56,11 @@
 <h2>กำไรตามสินค้าฐาน</h2>
 <p class="hint">รวมรายการขายที่ผูกไว้ทุกแพลตฟอร์ม จำนวนนับเป็นหน่วยฐาน (เช่น กล่อง) · กดชื่อสินค้าเพื่อดูแยกรายการขายและออเดอร์</p>
 <table class="grid">
-  <tr><th>สินค้าฐาน</th><th class="n">ออเดอร์</th><th class="n">หน่วย</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th><th class="n">กำไร/หน่วย</th></tr>
+  <tr><th>สินค้าฐาน</th><th class="n">ออเดอร์</th><th class="n">หน่วย</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">กำไรก่อนหักค่าใช้จ่าย</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th><th class="n">กำไร/หน่วย</th></tr>
   {% for name, p in report.by_base_product.items() %}
   <tr class="{% if p.net_profit < 0 %}loss{% else %}gain{% endif %}">
     <td><a href="/base-products/detail?name={{ name|urlencode }}&start={{ start }}&end={{ end }}&platform={{ platform }}">{{ name }}</a></td><td class="n">{{ p.order_count }}</td><td class="n">{{ p.quantity }}</td>
-    <td class="n">{{ p.net_received|baht }}</td><td class="n">{{ p.cogs|baht }}</td><td class="n">{{ p.expense|baht }}</td>
+    <td class="n">{{ p.net_received|baht }}</td><td class="n">{{ p.cogs|baht }}</td><td class="n">{{ p.contribution|baht }}</td><td class="n">{{ p.expense|baht }}</td>
     <td class="n profit">{{ p.net_profit|baht }}</td><td class="n">{{ (p.net_profit // p.quantity)|baht if p.quantity else '—' }}</td>
   </tr>
   {% endfor %}
@@ -71,11 +71,11 @@
 <p class="hint">รวมจากออเดอร์ที่ได้รับเงินในช่วงนี้และคิดต้นทุนได้ครบ ออเดอร์ที่มีหลายสินค้าจะแบ่งเงินตามสัดส่วนราคาขายของแต่ละบรรทัด</p>
 {% if report.by_product %}
 <table class="grid">
-  <tr><th>สินค้า</th><th class="n">ออเดอร์</th><th class="n">ชิ้น</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th><th class="n">กำไร/ชิ้น</th></tr>
+  <tr><th>สินค้า</th><th class="n">ออเดอร์</th><th class="n">ชิ้น</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">กำไรก่อนหักค่าใช้จ่าย</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th><th class="n">กำไร/ชิ้น</th></tr>
   {% for sku, p in report.by_product.items() %}
   <tr class="{% if p.net_profit < 0 %}loss{% else %}gain{% endif %}">
     <td>{{ sku }}</td><td class="n">{{ p.order_count }}</td><td class="n">{{ p.quantity }}</td>
-    <td class="n">{{ p.net_received|baht }}</td><td class="n">{{ p.cogs|baht }}</td><td class="n">{{ p.expense|baht }}</td>
+    <td class="n">{{ p.net_received|baht }}</td><td class="n">{{ p.cogs|baht }}</td><td class="n">{{ p.contribution|baht }}</td><td class="n">{{ p.expense|baht }}</td>
     <td class="n profit">{{ p.net_profit|baht }}</td><td class="n">{{ (p.net_profit // p.quantity)|baht if p.quantity else '—' }}</td>
   </tr>
   {% endfor %}
@@ -85,27 +85,27 @@
 <h2>กำไรรายออเดอร์</h2>
 {% if report.orders %}
 <table class="grid orders">
-  <tr><th>วันที่ได้เงิน</th><th>แพลตฟอร์ม</th><th>เลขออเดอร์ / สินค้า</th><th>สั่งเมื่อ</th><th class="n">ชิ้น</th><th class="n">ค่าธรรมเนียมรวม</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
+  <tr><th>วันที่ได้เงิน</th><th>แพลตฟอร์ม</th><th>เลขออเดอร์ / สินค้า</th><th>สั่งเมื่อ</th><th class="n">ชิ้น</th><th class="n">ค่าธรรมเนียมรวม</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">กำไรก่อนหักค่าใช้จ่าย</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
   {% for o in report.orders %}
   <tr class="{% if o.profit is none %}{% elif o.profit < 0 %}loss{% else %}gain{% endif %}">
     <td>{{ o.settled_at.strftime('%d/%m/%y') }}</td><td>{{ o.platform.value }}</td><td>{{ o.order_id }}</td>
     <td>{{ o.ordered_at.strftime('%d/%m/%y') if o.ordered_at else '—' }}</td>
     {% if o.empty_return %}
-    <td class="n" colspan="6"><span class="tag returned">คืนสินค้าทั้งหมด</span> ไม่ได้เงินและไม่มีต้นทุน</td>
+    <td class="n" colspan="7"><span class="tag returned">คืนสินค้าทั้งหมด</span> ไม่ได้เงินและไม่มีต้นทุน</td>
     {% else %}
     <td class="n">{% if o.fully_returned %}<span class="tag returned">คืนสินค้าทั้งหมด</span>{% else %}{{ o.quantity or '—' }}{% endif %}</td>
     <td class="n">{{ o.fee_total|baht }}</td><td class="n">{{ o.net_received|baht }}</td>
-    <td class="n">{{ o.cogs|baht if o.cogs is not none else '?' }}</td><td class="n">{{ o.allocated_expense|baht }}</td>
+    <td class="n">{{ o.cogs|baht if o.cogs is not none else '?' }}</td><td class="n">{{ o.contribution|baht if o.contribution is not none else '—' }}</td><td class="n">{{ o.allocated_expense|baht }}</td>
     <td class="n profit">{{ o.profit|baht if o.profit is not none else 'ไม่ทราบ' }}</td>
     {% endif %}
   </tr>
   {% if o.empty_return %}
-  {% for ln in o.lines %}<tr class="line"><td></td><td></td><td class="sku">{{ ln.sku }}</td><td></td><td colspan="6"></td></tr>{% endfor %}
+  {% for ln in o.lines %}<tr class="line"><td></td><td></td><td class="sku">{{ ln.sku }}</td><td></td><td colspan="7"></td></tr>{% endfor %}
   {% else %}
   {% for ln in o.lines %}
   <tr class="line {% if ln.profit is none %}{% elif ln.profit < 0 %}loss{% else %}gain{% endif %}">
     <td></td><td></td><td class="sku">{{ ln.sku }}</td><td></td><td class="n">{{ ln.quantity }}</td><td></td>
-    <td class="n">{{ ln.net_received|baht }}</td><td class="n">{% if ln.cogs is not none %}{{ ln.cogs|baht }}{% else %}<a href="/sku-costs?map={{ ln.sku|urlencode }}#map-form" title="ใส่ต้นทุนของสินค้านี้">? ใส่ต้นทุน</a>{% endif %}</td><td class="n">{{ ln.allocated_expense|baht }}</td>
+    <td class="n">{{ ln.net_received|baht }}</td><td class="n">{% if ln.cogs is not none %}{{ ln.cogs|baht }}{% else %}<a href="/sku-costs?map={{ ln.sku|urlencode }}#map-form" title="ใส่ต้นทุนของสินค้านี้">? ใส่ต้นทุน</a>{% endif %}</td><td class="n">{{ ln.contribution|baht if ln.contribution is not none else '—' }}</td><td class="n">{{ ln.allocated_expense|baht }}</td>
     <td class="n profit">{{ ln.profit|baht if ln.profit is not none else 'ไม่ทราบ' }}</td>
   </tr>
   {% endfor %}

@@ -136,6 +136,7 @@ def test_base_product_detail_finds_and_fixes_a_units_typo(client):
     assert 'href="/base-products/detail?name=CALCIUM%20PLUS&start=2026-09-01' in client.get("/", params=period).text
     detail = client.get("/base-products/detail", params={"name": "CALCIUM PLUS", **period}).text
     assert "จำนวนหน่วยสูงผิดปกติ" in detail and "-37,725.00" in detail  # 300 − 1 × 195 × 195
+    assert detail.count("กำไรก่อนหักค่าใช้จ่าย") == 2
     back = "/base-products/detail?name=CALCIUM%20PLUS&start=2026-09-01&end=2026-09-30&platform=all"
     r = client.post("/listing-maps/units", data={"sku": "แคลเซียม สตอเบอรี่", "base_product": "CALCIUM PLUS", "units_per_listing": "1", "back": back})
     assert r.url.path == "/base-products/detail" and "จำนวนหน่วยสูงผิดปกติ" not in r.text and "105.00" in r.text  # 300 − 195
@@ -164,6 +165,7 @@ def test_upload_then_dashboard_shows_profit(client):
     client.post("/expenses", data={"kind": "ads", "platform": "shopee", "amount": "35", "incurred_on": "2026-09-20", "note": ""})
     page =client.get("/", params={"start": "2026-09-01", "end": "2026-09-30"}).text
     assert "285.00" in page and "100.00" in page and "150.00" in page  # net, cogs, profit 285-100-35
+    assert page.count("กำไรก่อนหักค่าใช้จ่าย") == 2 and "185.00" in page  # product + order tables (no base product yet); 285-100 before 35 ads
     assert "กำไรตามรายการขาย" in page and "75.00" in page  # profit per unit: 150 / 2 pieces
     assert "ขาดทุน" not in page
     # edit the cost row: 50 → 60 changes profit 150 → 130; a duplicate (sku, date) is rejected with a message
