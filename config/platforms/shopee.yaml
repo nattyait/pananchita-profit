@@ -37,3 +37,15 @@ reports:
       payment_method: ["ช่องทางการชำระเงิน", "Payment Method"]
     options:
       cancelled_statuses: ["ยกเลิกแล้ว", "ยกเลิก", "Cancelled", "Canceled"]
+  # ADR-0007 amendment: ประวัติการทำธุรกรรม Shopee Ads (<username>_adwords_bill_<วันที่>.csv) ล็อกจากไฟล์จริง ก.ย. 2026
+  # เงินสด: นับค่าแอดตอนร้าน "เติมเครดิต" เอง; แถวติดลบคือการใช้เครดิต (ไม่ใช่เงินออกใหม่);
+  # เติมอัตโนมัติจาก Escrow ถูกหักจากยอดโอนและอยู่ในรายงานรายรับแล้ว (ads_fee)
+  ads:
+    required: [transacted_at, description, amount]
+    headers:
+      transacted_at: ["เวลา"]
+      description:   ["รายละเอียด"]
+      amount:        ["จำนวน"]
+    options:
+      charged_topups: ["เติมเครดิต"]
+      payout_topups: ["เติมเครดิตอัตโนมัติ (Escrow)"]

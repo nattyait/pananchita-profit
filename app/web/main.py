@@ -33,7 +33,7 @@ templates.env.filters["shop_time"] = lambda instant: utc_to_local(instant, clock
 templates.env.globals.update(
     PLATFORMS=[(p.value, name) for p, name in ((Platform.SHOPEE, "Shopee"), (Platform.TIKTOK, "TikTok"), (Platform.FACEBOOK, "Facebook"))],
     KINDS=[(ReportKind.INCOME.value, "รายงานรายรับ (โอนเงินสำเร็จ)"), (ReportKind.ORDERS.value, "รายงานคำสั่งซื้อ (ทั้งหมด)"),
-           (ReportKind.ADS.value, "ใบแจ้งยอดค่าโฆษณา (TikTok Ads)")],
+           (ReportKind.ADS.value, "ใบแจ้งยอดค่าโฆษณา (TikTok Ads / Shopee Ads)")],
     EXPENSE_KINDS=[(ExpenseKind.ADS.value, "ค่าแอด"), (ExpenseKind.STAFF.value, "ค่าพนักงาน"), (ExpenseKind.TAX.value, "ภาษี"), (ExpenseKind.OTHER.value, "อื่น ๆ")],
     SHARED=SHARED,
 )
