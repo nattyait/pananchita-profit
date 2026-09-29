@@ -55,12 +55,17 @@ class BaseProductLine:
     def profit(self) -> int:
         return self.net_received - self.cogs - self.expense
 
+    @property
+    def empty_return(self) -> bool:
+        """Every piece came back and no money moved for this line."""
+        return self.pieces == 0 and self.net_received == 0 and self.expense == 0
+
 
 @dataclass(frozen=True)
 class BaseProductDetail:
     name: str
     listings: tuple[ListingBreakdown, ...]  # sold ones worst net_profit first, then unsold
-    lines: tuple[BaseProductLine, ...]  # worst profit first
+    lines: tuple[BaseProductLine, ...]  # worst profit first, empty returns last
 
 
 def base_product_detail(report: ProfitReport, maps: Iterable[ListingMap], name: str) -> BaseProductDetail:
@@ -84,5 +89,5 @@ def base_product_detail(report: ProfitReport, maps: Iterable[ListingMap], name: 
             a[4] += ln.allocated_expense
     listings = [ListingBreakdown(sku, units[sku], len(a[0]), a[1], a[2], a[3], a[4]) for sku, a in acc.items()]
     listings.sort(key=lambda r: (r.order_count == 0, r.net_profit, r.sku))
-    lines.sort(key=lambda ln: (ln.profit, ln.order_id))
+    lines.sort(key=lambda ln: (ln.empty_return, ln.profit, ln.order_id))
     return BaseProductDetail(name, tuple(listings), tuple(lines))

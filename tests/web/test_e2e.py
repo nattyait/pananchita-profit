@@ -218,3 +218,16 @@ def test_upload_time_is_stored_utc_and_shown_in_thai_time(client, monkeypatch):
     client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("z.xlsx", inc)})
     page = client.get("/uploads").text
     assert "29/09/26 01:09" in page and "28/09/26 18:09" not in page
+
+
+def test_detail_page_labels_returns_and_unsold_listings(client):
+    inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["K1", "2026-09-10", 0]])
+    client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("i.xlsx", inc)})
+    head = ["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"]
+    client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"},
+                files={"file": ("o.xlsx", _xlsx([head, ["K1", "2026-09-09", "กาแฟ 2แถม2", "", 0], ["K9", "2026-01-01", "กาแฟ 3กล่อง", "", 1]]))})
+    client.post("/listing-maps", data={"sku": "กาแฟ 2แถม2", "base_product": "กาแฟ", "unit_label": "กล่อง", "units_per_listing": "4"})
+    client.post("/listing-maps", data={"sku": "กาแฟ 3กล่อง", "base_product": "กาแฟ", "units_per_listing": "3"})
+    client.post("/sku-costs", data={"sku": "กาแฟ", "unit_cost": "110", "effective_from": "2026-01-01"})
+    page = client.get("/base-products/detail", params={"name": "กาแฟ", "start": "2026-09-01", "end": "2026-09-30"}).text
+    assert "คืนสินค้าทั้งหมด" in page and "0 × 4" not in page and "ไม่มียอดขายในช่วงนี้" in page
