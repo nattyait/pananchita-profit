@@ -185,3 +185,14 @@ def test_upload_then_dashboard_shows_profit(client):
     assert "กาแฟว่าง" not in client.get("/sku-costs").text
     assert client.get("/uploads").status_code == 200
     assert "A1" not in client.get("/", params={"start": "2026-10-01", "end": "2026-10-31", "platform": "shopee"}).text.split("รอรับเงิน")[0]
+
+
+def test_upload_time_is_stored_utc_and_shown_in_thai_time(client, monkeypatch):
+    from datetime import datetime
+
+    from app.effects import clock
+    monkeypatch.setattr(clock, "now_utc", lambda: datetime(2026, 9, 28, 18, 9))
+    inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["Z1", "2026-09-15", 100]])
+    client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("z.xlsx", inc)})
+    page = client.get("/uploads").text
+    assert "29/09/26 01:09" in page and "28/09/26 18:09" not in page

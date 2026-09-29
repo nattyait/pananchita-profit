@@ -1,7 +1,7 @@
 """Date parsing for platform reports. Pure."""
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime, tzinfo
 
 _FORMATS = (
     "%Y-%m-%d %H:%M:%S",
@@ -37,3 +37,8 @@ def parse_date(value: object) -> date:
 def in_period(day: date, start: date, end: date) -> bool:
     """Inclusive on both ends."""
     return start <= day <= end
+
+
+def utc_to_local(instant: datetime, tz: tzinfo) -> datetime:
+    """Stored instants (uploaded_at) are naive UTC; show them in the shop's time zone."""
+    return instant.replace(tzinfo=UTC).astimezone(tz)

@@ -56,3 +56,12 @@ def test_in_period_inclusive():
     assert in_period(date(2026, 9, 1), date(2026, 9, 1), date(2026, 9, 30))
     assert in_period(date(2026, 9, 30), date(2026, 9, 1), date(2026, 9, 30))
     assert not in_period(date(2026, 10, 1), date(2026, 9, 1), date(2026, 9, 30))
+
+
+def test_stored_utc_instant_is_shown_in_shop_time():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from app.domain.dates import utc_to_local
+    got = utc_to_local(datetime(2026, 9, 28, 18, 9), ZoneInfo("Asia/Bangkok"))
+    assert (got.day, got.hour, got.minute) == (29, 1, 9)

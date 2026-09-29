@@ -1,7 +1,7 @@
 """HTTP adapter. Routes parse input → call one use case → render. No SQL, no arithmetic, no business `if`."""
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from typing import Annotated
 from urllib.parse import quote
 
@@ -12,9 +12,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.domain.dates import utc_to_local
 from app.domain.money import baht, parse_money
 from app.domain.types import SHARED, ExpenseKind, Platform, ReportKind
-from app.effects import db, file_store
+from app.effects import clock, db, file_store
 from app.orchestration.base_products import DeleteUnusedBaseProduct, MergeBaseProducts, RenameBaseProduct
 from app.orchestration.import_report import ImportReport
 from app.orchestration.listing_maps import BulkMapListings
@@ -25,6 +26,7 @@ app = FastAPI(title="Pananchita Profit")
 app.mount("/static", StaticFiles(directory=settings.STATIC), name="static")
 templates = Jinja2Templates(directory=settings.TEMPLATES)
 templates.env.filters["baht"] = baht
+templates.env.filters["shop_time"] = lambda instant: utc_to_local(instant, clock.SHOP_TZ)
 templates.env.globals.update(
     PLATFORMS=[(p.value, name) for p, name in ((Platform.SHOPEE, "Shopee"), (Platform.TIKTOK, "TikTok"), (Platform.FACEBOOK, "Facebook"))],
     KINDS=[(ReportKind.INCOME.value, "รายงานรายรับ (โอนเงินสำเร็จ)"), (ReportKind.ORDERS.value, "รายงานคำสั่งซื้อ (ทั้งหมด)"),
@@ -56,12 +58,12 @@ def _default_period(today: date) -> tuple[date, date]:
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, s: Db, start: date | None = None, end: date | None = None, platform: str = "all"):
-    d_start, d_end = _default_period(date.today())
+    d_start, d_end = _default_period(clock.today_local())
     start, end = start or d_start, end or d_end
     chosen = Platform(platform) if platform in Platform._value2member_map_ else None
     report = BuildProfitReport(s).run(start=start, end=end, platform=chosen)
     return _render(request, "dashboard.html", report=report, start=start, end=end, platform=platform, ExpenseKind=ExpenseKind,
-                   to_export=BuildProfitReport.reports_to_export(report, date.today()))
+                   to_export=BuildProfitReport.reports_to_export(report, clock.today_local()))
 
 
 @app.get("/upload", response_class=HTMLResponse)
@@ -72,7 +74,7 @@ def upload_form(request: Request, outcome: str | None = None):
 @app.post("/upload")
 async def upload(s: Db, platform: Annotated[str, Form()], kind: Annotated[str, Form()], uploaded_by: Annotated[str, Form()], file: UploadFile):
     data = await file.read()
-    outcome = ImportReport(s, settings.UPLOAD_ROOT, settings.CONFIG_ROOT, now=datetime.now()).run(
+    outcome = ImportReport(s, settings.UPLOAD_ROOT, settings.CONFIG_ROOT, now=clock.now_utc()).run(
         platform=Platform(platform), kind=ReportKind(kind), filename=file.filename or "report", data=data, uploaded_by=uploaded_by.strip(),
     )
     return RedirectResponse(f"/uploads?highlight={outcome.upload_id}", status_code=303)
@@ -98,7 +100,7 @@ def sku_costs(request: Request, s: Db):
     base_products = db.list_base_products(s)
     have = {r.sku for r in db.list_sku_cost_rows(s)}
     return _render(request, "sku_costs.html", rows=db.list_sku_cost_rows(s), missing=[p for p in seen if not p.has_cost],
-                   seen_by_sku={p.sku: p for p in seen}, today=date.today(), prefill=request.query_params.get("sku", ""),
+                   seen_by_sku={p.sku: p for p in seen}, today=clock.today_local(), prefill=request.query_params.get("sku", ""),
                    base_products=base_products, base_without_cost=[b for b in base_products if b.name not in have],
                    listings_by_base={b.name: [p for p in seen if p.base_product == b.name] for b in base_products},
                    map_sku=request.query_params.get("map", ""), rename=request.query_params.get("rename", ""),
@@ -218,7 +220,7 @@ def remove_sku_cost(s: Db, cost_id: int):
 
 @app.get("/expenses", response_class=HTMLResponse)
 def expenses(request: Request, s: Db):
-    return _render(request, "expenses.html", rows=db.list_expense_rows(s), today=date.today())
+    return _render(request, "expenses.html", rows=db.list_expense_rows(s), today=clock.today_local())
 
 
 @app.post("/expenses")

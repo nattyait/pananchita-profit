@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.domain import mapping
 from app.domain.platforms import parser_for
 from app.domain.types import Platform, ReportKind
-from app.effects import db, file_store, mapping_loader, report_reader
+from app.effects import clock, db, file_store, mapping_loader, report_reader
 
 log = logging.getLogger("import")
 
@@ -32,7 +32,7 @@ class ImportOutcome:
 class ImportReport:
     def __init__(self, session: Session, upload_root: Path, config_root: Path, now: datetime | None = None):
         self.s, self.upload_root, self.config_root = session, upload_root, config_root
-        self.now = now or datetime.now()
+        self.now = now or clock.now_utc()
 
     def run(self, *, platform: Platform, kind: ReportKind, filename: str, data: bytes, uploaded_by: str) -> ImportOutcome:
         sha = file_store.sha256_of(data)
