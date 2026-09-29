@@ -97,10 +97,13 @@ def test_platform_filter_keeps_only_that_platform_and_its_share():
     expenses = (Expense(ExpenseKind.TAX, SHARED, 1000, SEP1), Expense(ExpenseKind.ADS, "tiktok", 500, SEP1))
     r = build_report(period_start=SEP1, period_end=SEP30, settlements=settlements, order_lines=lines, sku_costs=COSTS, expenses=expenses, platform=Platform.SHOPEE)
     assert list(r.by_platform) == ["shopee"]
-    # Filtered view: shared expense is allocated only among visible platforms → whole 1000 to shopee.
-    # (Cross-platform share needs the "all" view; documented in ADR-0002 consequences.)
-    assert r.total.expenses == {ExpenseKind.TAX: 1000}
+    # ADR-0002 (amended 2026-09-29, owner): a filtered view shows the SAME share the platform gets in the "all" view.
+    # Shared 1000 split by net received of every platform (30000 : 70000) → shopee keeps 300; tiktok's own ads are not shown.
+    assert r.total.expenses == {ExpenseKind.TAX: 300}
     assert r.total.net_received == 30000
+    all_view = build_report(period_start=SEP1, period_end=SEP30, settlements=settlements, order_lines=lines, sku_costs=COSTS, expenses=expenses)
+    assert all_view.by_platform["shopee"].expenses == r.by_platform["shopee"].expenses
+    assert {o.order_id: o.allocated_expense for o in r.orders} == {"S1": 300}
 
 
 def test_shared_expense_with_no_settlements_stays_in_total_unallocated():
@@ -210,3 +213,24 @@ def test_order_money_still_lands_on_lines_when_every_line_weight_is_zero():
     lines = (OrderLine(Platform.SHOPEE, "R", 1, "A", 0, d), OrderLine(Platform.SHOPEE, "R", 2, "B", 0, d))
     shares = split_order_lines(lines, -86005, 101, ())
     assert sum(s.net_received for s in shares) == -86005 and sum(s.allocated_expense for s in shares) == 101
+
+
+
+def test_order_with_several_settlements_gets_expense_once_per_settlement_share():
+    # ADR-0002: expense is split per Settlement by its own net_received; an order with two payments is not charged twice.
+    settlements = (sett("A", SEP1, 30000), sett("A", date(2026, 9, 5), 10000), sett("B", SEP1, 60000))
+    lines = (line("A", "PNC-001", 1, SEP1), line("B", "PNC-001", 1, SEP1))
+    r = build_report(period_start=SEP1, period_end=SEP30, settlements=settlements, order_lines=lines, sku_costs=(SkuCost("PNC-001", 0, date(2026, 1, 1)),),
+                     expenses=(Expense(ExpenseKind.ADS, "shopee", 10000, SEP1),))
+    shares = sorted((o.order_id, o.settled_at.day, o.allocated_expense) for o in r.orders)
+    assert shares == [("A", 1, 3000), ("A", 5, 1000), ("B", 1, 6000)]
+    assert sum(o.allocated_expense for o in r.orders) == r.total.expense_total == 10000
+
+
+def test_clawback_settlement_gets_no_expense_share():
+    settlements = (sett("A", SEP1, 67048), sett("A", date(2026, 9, 3), -86004), sett("B", SEP1, 32952))
+    lines = (line("A", "PNC-001", 0, SEP1), line("B", "PNC-001", 1, SEP1))
+    r = build_report(period_start=SEP1, period_end=SEP30, settlements=settlements, order_lines=lines, sku_costs=(SkuCost("PNC-001", 0, date(2026, 1, 1)),),
+                     expenses=(Expense(ExpenseKind.ADS, "shopee", 10000, SEP1),))
+    got = {(o.order_id, o.settled_at.day): o.allocated_expense for o in r.orders}
+    assert got == {("A", 1): 6705, ("A", 3): 0, ("B", 1): 3295}
