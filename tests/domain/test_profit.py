@@ -234,3 +234,30 @@ def test_clawback_settlement_gets_no_expense_share():
                      expenses=(Expense(ExpenseKind.ADS, "shopee", 10000, SEP1),))
     got = {(o.order_id, o.settled_at.day): o.allocated_expense for o in r.orders}
     assert got == {("A", 1): 6705, ("A", 3): 0, ("B", 1): 3295}
+
+
+def test_cogs_is_counted_once_per_order_on_its_first_paid_settlement():
+    # partial refund, customer keeps the goods: paid 1/9, refunded part on 5/9 → cost of goods only once
+    settlements = (sett("A", SEP1, 30000), sett("A", date(2026, 9, 5), -5000))
+    r = build_report(period_start=SEP1, period_end=SEP30, settlements=settlements, order_lines=(line("A", "PNC-001", 1, SEP1),),
+                     sku_costs=COSTS, expenses=())
+    got = {o.settled_at.day: (o.cogs, [ln.cogs for ln in o.lines]) for o in r.orders}
+    assert got == {1: (5000, [5000]), 5: (0, [0])}  # cost in force on ordered_at 1/9
+    assert r.total.cogs == 5000 and r.by_product["PNC-001"].cogs == 5000
+    assert sum(o.profit for o in r.orders) == r.total.net_profit == 30000 - 5000 - 5000
+
+
+def test_later_adjustment_in_a_new_period_does_not_bring_cogs_again():
+    aug = date(2026, 8, 20)
+    settlements = (sett("A", aug, 30000), sett("A", date(2026, 9, 3), 2000))
+    r = build_report(period_start=SEP1, period_end=SEP30, settlements=settlements, order_lines=(line("A", "PNC-001", 1, aug),),
+                     sku_costs=COSTS, expenses=())
+    assert [(o.settled_at, o.cogs) for o in r.orders] == [(date(2026, 9, 3), 0)]
+    assert r.total.cogs == 0 and not r.problems
+
+
+def test_first_paid_settlement_carries_cogs_even_if_a_clawback_came_first():
+    settlements = (sett("A", SEP1, -1000), sett("A", date(2026, 9, 2), 30000))
+    r = build_report(period_start=SEP1, period_end=SEP30, settlements=settlements, order_lines=(line("A", "PNC-001", 1, SEP1),),
+                     sku_costs=COSTS, expenses=())
+    assert {o.settled_at.day: o.cogs for o in r.orders} == {1: 0, 2: 5000}

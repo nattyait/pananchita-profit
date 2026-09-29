@@ -37,5 +37,8 @@ Status: Accepted · Date: 2026-09-27
    that share on every row (double-charged when the last was positive; nothing when it was a clawback).
    Settlements with net_received ≤ 0 (clawbacks) still get no share.
 3. Invariant unchanged and tested: `Σ OrderProfit == PeriodPnl.net_profit` when all COGS are known.
-Not changed here: COGS is still computed per Settlement; an order with several Settlements that keeps pieces would count
-COGS more than once. No live order is affected (2026-09-28: all 6 multi-Settlement orders are full returns, COGS 0).
+4. **COGS once per order.** An order's COGS is carried by ONE Settlement: its earliest Settlement with net_received > 0,
+   found across all dates (not only the viewed period), else its earliest Settlement. Its other Settlements carry COGS 0
+   (e.g. a partial refund where the customer keeps the goods, or a later adjustment in a new month).
+   Before, COGS was recomputed on every Settlement. No live order was affected when this was fixed
+   (2026-09-29: all 6 multi-Settlement orders were full returns, COGS 0).

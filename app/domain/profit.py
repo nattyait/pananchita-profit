@@ -165,7 +165,7 @@ def cogs_for(lines: tuple[OrderLine, ...], costs: tuple[SkuCost, ...], maps: dic
 
 
 def split_order_lines(lines: tuple[OrderLine, ...], net_received: int, allocated_expense: int, costs: tuple[SkuCost, ...],
-                      maps: dict[str, ListingMap] | None = None) -> tuple[OrderLineProfit, ...]:
+                      maps: dict[str, ListingMap] | None = None, carries_cogs: bool = True) -> tuple[OrderLineProfit, ...]:
     """ADR-0004: weights = line_amount, else quantity, else equal (e.g. fully returned lines). Shares sum exactly to the order figures."""
     weights = {i: ln.line_amount for i, ln in enumerate(lines)}
     if not any(w > 0 for w in weights.values()):
@@ -176,7 +176,7 @@ def split_order_lines(lines: tuple[OrderLine, ...], net_received: int, allocated
     exp_share = split_proportionally(allocated_expense, weights)
     out = []
     for i, ln in enumerate(lines):
-        unit = effective_unit_cost(costs, maps or {}, ln.sku, ln.ordered_at)
+        unit = effective_unit_cost(costs, maps or {}, ln.sku, ln.ordered_at) if carries_cogs else 0
         out.append(OrderLineProfit(ln.sku, ln.product_name, ln.quantity, net_share.get(i, 0), None if unit is None else unit * ln.quantity, exp_share.get(i, 0)))
     return tuple(out)
 
@@ -241,11 +241,21 @@ def build_report(
     cogs_by_platform: dict[str, int] = defaultdict(int)
     incomplete_by_platform: dict[str, int] = defaultdict(int)
     count_by_platform: dict[str, int] = defaultdict(int)
+    # --- COGS once per order: on its first paid Settlement (any date), else its first Settlement (ADR-0002 amendment) ---
+    cogs_carrier: dict[tuple[str, str], tuple[tuple[bool, date], tuple[str, str, date]]] = {}
+    for s in settlements:
+        k, rank = (s.platform.value, s.order_id), (s.net_received <= 0, s.settled_at)
+        if k not in cogs_carrier or rank < cogs_carrier[k][0]:
+            cogs_carrier[k] = (rank, s.settlement_key)
+
     for s in settled:
         key = (s.platform.value, s.order_id)
         lines = tuple(lines_by_order.get(key, ()))
-        if lines:
+        carries = cogs_carrier[key][1] == s.settlement_key
+        if lines and carries:
             cogs, probs = cogs_for(lines, sku_costs, maps)
+        elif lines:
+            cogs, probs = 0, ()
         else:
             cogs, probs = None, (ImportProblem(f"ออเดอร์ {s.order_id} ยังไม่มีรายการสินค้า (อัพโหลดรายงานคำสั่งซื้อ)", None, "order_id"),)
         problems.extend(probs)
@@ -261,7 +271,7 @@ def build_report(
                 net_received=s.net_received, cogs=cogs,
                 allocated_expense=alloc.get(s.settlement_key, 0), fee_total=_fee_total(s),
                 quantity=sum(ln.quantity for ln in lines),
-                lines=split_order_lines(lines, s.net_received, alloc.get(s.settlement_key, 0), sku_costs, maps),
+                lines=split_order_lines(lines, s.net_received, alloc.get(s.settlement_key, 0), sku_costs, maps, carries_cogs=carries),
             )
         )
 
