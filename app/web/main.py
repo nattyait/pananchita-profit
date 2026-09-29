@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.domain.base_product_detail import suspicious_listing_skus
 from app.domain.dates import utc_to_local
 from app.domain.money import baht, parse_money
 from app.domain.types import SHARED, ExpenseKind, Platform, ReportKind
@@ -19,7 +20,7 @@ from app.effects import clock, db, file_store
 from app.orchestration.base_products import DeleteUnusedBaseProduct, MergeBaseProducts, RenameBaseProduct
 from app.orchestration.import_report import ImportReport
 from app.orchestration.listing_maps import BulkMapListings
-from app.orchestration.profit_report import BuildProfitReport
+from app.orchestration.profit_report import BuildBaseProductDetail, BuildProfitReport
 from app.web import settings
 
 app = FastAPI(title="Pananchita Profit")
@@ -66,6 +67,16 @@ def dashboard(request: Request, s: Db, start: date | None = None, end: date | No
                    to_export=BuildProfitReport.reports_to_export(report, clock.today_local()))
 
 
+@app.get("/base-products/detail", response_class=HTMLResponse)
+def base_product_detail_page(request: Request, s: Db, name: str, start: date | None = None, end: date | None = None, platform: str = "all"):
+    d_start, d_end = _default_period(clock.today_local())
+    start, end = start or d_start, end or d_end
+    chosen = Platform(platform) if platform in Platform._value2member_map_ else None
+    detail = BuildBaseProductDetail(s).run(name=name, start=start, end=end, platform=chosen)
+    back = f"/base-products/detail?name={quote(name)}&start={start}&end={end}&platform={quote(platform)}"
+    return _render(request, "base_product_detail.html", detail=detail, start=start, end=end, platform=platform, back=back)
+
+
 @app.get("/upload", response_class=HTMLResponse)
 def upload_form(request: Request, outcome: str | None = None):
     return _render(request, "upload.html", outcome=outcome)
@@ -105,6 +116,7 @@ def sku_costs(request: Request, s: Db):
                    listings_by_base={b.name: [p for p in seen if p.base_product == b.name] for b in base_products},
                    map_sku=request.query_params.get("map", ""), rename=request.query_params.get("rename", ""),
                    deletable=DeleteUnusedBaseProduct(s).deletable(), taken=request.query_params.get("taken", ""),
+                   suspicious=suspicious_listing_skus(db.all_listing_maps(s)),
                    latest_cost={r.sku: r.unit_cost for r in sorted(db.list_sku_cost_rows(s), key=lambda r: r.effective_from)})
 
 
@@ -137,7 +149,7 @@ def update_listing_units(s: Db, sku: Annotated[str, Form()], base_product: Annot
                          back: Annotated[str, Form()] = "/sku-costs"):
     db.upsert_listing_map(s, sku=sku.strip(), base_product=base_product.strip(), units_per_listing=max(units_per_listing, 1), unit_price=0)
     s.commit()
-    return RedirectResponse(back if back.startswith("/") else "/sku-costs", status_code=303)
+    return RedirectResponse(back if back.startswith("/") and not back.startswith("//") else "/sku-costs", status_code=303)
 
 
 @app.post("/base-products/rename")

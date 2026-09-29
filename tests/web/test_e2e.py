@@ -122,6 +122,28 @@ def test_tiktok_ads_statement_adds_card_bills_once(client):
     assert "ยังไม่รองรับรายงานชนิด" in r.text
 
 
+def test_base_product_detail_finds_and_fixes_a_units_typo(client):
+    inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["C1", "2026-09-10", 300], ["C2", "2026-09-11", 900]])
+    client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("i.xlsx", inc)})
+    head = ["หมายเลขคำสั่งซื้อ", "วันที่ทำการสั่งซื้อ", "ชื่อสินค้า", "เลขอ้างอิง SKU (SKU Reference No.)", "จำนวน"]
+    ords = _xlsx([head, ["C1", "2026-09-09", "แคลเซียม สตอเบอรี่", "", 1], ["C2", "2026-09-09", "แคลเซียม 2แถม2", "", 1]])
+    client.post("/upload", data={"platform": "shopee", "kind": "orders", "uploaded_by": "เก๋"}, files={"file": ("o.xlsx", ords)})
+    client.post("/listing-maps", data={"sku": "แคลเซียม สตอเบอรี่", "base_product": "CALCIUM PLUS", "unit_label": "กล่อง", "units_per_listing": "195"})
+    client.post("/listing-maps", data={"sku": "แคลเซียม 2แถม2", "base_product": "CALCIUM PLUS", "units_per_listing": "4"})
+    client.post("/sku-costs", data={"sku": "CALCIUM PLUS", "unit_cost": "195", "effective_from": "2026-05-01"})
+    assert "1 รายการขายตั้งจำนวนหน่วยสูงผิดปกติ" in client.get("/sku-costs").text
+    period = {"start": "2026-09-01", "end": "2026-09-30"}
+    assert 'href="/base-products/detail?name=CALCIUM%20PLUS&start=2026-09-01' in client.get("/", params=period).text
+    detail = client.get("/base-products/detail", params={"name": "CALCIUM PLUS", **period}).text
+    assert "จำนวนหน่วยสูงผิดปกติ" in detail and "-37,725.00" in detail  # 300 − 1 × 195 × 195
+    back = "/base-products/detail?name=CALCIUM%20PLUS&start=2026-09-01&end=2026-09-30&platform=all"
+    r = client.post("/listing-maps/units", data={"sku": "แคลเซียม สตอเบอรี่", "base_product": "CALCIUM PLUS", "units_per_listing": "1", "back": back})
+    assert r.url.path == "/base-products/detail" and "จำนวนหน่วยสูงผิดปกติ" not in r.text and "105.00" in r.text  # 300 − 195
+    r = client.post("/listing-maps/units", data={"sku": "แคลเซียม 2แถม2", "base_product": "CALCIUM PLUS", "units_per_listing": "4", "back": "//evil.example"},
+                    follow_redirects=False)
+    assert r.headers["location"] == "/sku-costs"
+
+
 def test_upload_then_dashboard_shows_profit(client):
     inc = _xlsx([["หมายเลขคำสั่งซื้อ", "วันที่โอนชำระเงินสำเร็จ", "จำนวนเงินทั้งหมดที่โอนแล้ว (฿)"], ["A1", "2026-09-15", 285]])
     r = client.post("/upload", data={"platform": "shopee", "kind": "income", "uploaded_by": "เก๋"}, files={"file": ("inc.xlsx", inc)}, follow_redirects=False)

@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block title %}{{ detail.name }}{% endblock %}
+{% block body %}
+<p><a href="/?start={{ start }}&end={{ end }}&platform={{ platform }}">← กลับหน้ากำไร</a></p>
+<h1>{{ detail.name }} · {{ start.strftime('%d/%m/%Y') }} – {{ end.strftime('%d/%m/%Y') }}</h1>
+<p class="hint">แยกตามรายการขายที่ผูกกับสินค้าฐานนี้ นับเฉพาะออเดอร์ที่คิดต้นทุนได้ครบ (เหมือนตารางกำไรตามสินค้าฐาน)
+ถ้าตัวเลขแปลก ให้ดู <b>หน่วยต่อ 1 ชิ้นที่ขาย</b> ก่อน — ต้นทุน = ชิ้นที่ขาย × หน่วยต่อชิ้น × ราคาทุนต่อหน่วย</p>
+
+{% set bad = detail.listings|selectattr('suspicious')|list %}
+{% if bad %}<div class="notice bad"><strong>{{ bad|length }} รายการตั้งจำนวนหน่วยสูงผิดปกติ</strong> — มักเกิดจากพิมพ์ราคาทุนลงช่องจำนวนหน่วย แก้ในตารางด้านล่างได้เลย</div>{% endif %}
+
+<h2>รายการขายที่ผูกไว้</h2>
+<table class="grid">
+  <tr><th>รายการขาย</th><th class="n">หน่วยต่อ 1 ชิ้นที่ขาย</th><th class="n">ออเดอร์</th><th class="n">ชิ้นที่ขาย</th><th class="n">หน่วยฐาน</th>
+      <th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
+  {% for r in detail.listings %}
+  <tr class="{% if r.order_count == 0 %}{% elif r.net_profit < 0 %}loss{% else %}gain{% endif %}">
+    <td class="sku">{{ r.sku }}{% if r.suspicious %} <span class="tag failed">จำนวนหน่วยสูงผิดปกติ</span>{% endif %}</td>
+    <td class="n"><form method="post" action="/listing-maps/units" style="display:inline-flex;gap:.3rem">
+      <input type="hidden" name="sku" value="{{ r.sku }}"><input type="hidden" name="base_product" value="{{ detail.name }}"><input type="hidden" name="back" value="{{ back }}">
+      <input name="units_per_listing" type="number" min="1" value="{{ r.units_per_listing }}" style="width:5rem;min-width:0"><button type="submit">บันทึก</button></form></td>
+    <td class="n">{{ r.order_count }}</td><td class="n">{{ r.pieces }}</td><td class="n">{{ r.base_units }}</td>
+    <td class="n">{{ r.net_received|baht }}</td><td class="n">{{ r.cogs|baht }}</td><td class="n">{{ r.expense|baht }}</td>
+    <td class="n profit">{{ r.net_profit|baht if r.order_count else '—' }}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>ออเดอร์ <span class="tag wait">{{ detail.lines|length }}</span></h2>
+<p class="hint">เรียงจากขาดทุนมากสุดก่อน</p>
+{% if detail.lines %}
+<table class="grid">
+  <tr><th>วันที่ได้เงิน</th><th>แพลตฟอร์ม</th><th>เลขออเดอร์</th><th>รายการขาย</th><th class="n">ชิ้น</th><th class="n">ยอดรับจริง</th><th class="n">ต้นทุนสินค้า</th><th class="n">ส่วนแบ่งค่าใช้จ่าย</th><th class="n">กำไรสุทธิ</th></tr>
+  {% for ln in detail.lines %}
+  <tr class="{% if ln.profit < 0 %}loss{% else %}gain{% endif %}"><td>{{ ln.settled_at.strftime('%d/%m/%y') }}</td><td>{{ ln.platform.value }}</td><td>{{ ln.order_id }}</td>
+    <td class="sku">{{ ln.sku }}</td><td class="n">{{ ln.pieces }} × {{ ln.units_per_listing }}</td><td class="n">{{ ln.net_received|baht }}</td><td class="n">{{ ln.cogs|baht }}</td>
+    <td class="n">{{ ln.expense|baht }}</td><td class="n profit">{{ ln.profit|baht }}</td></tr>
+  {% endfor %}
+</table>
+{% else %}<p class="hint">ไม่มีออเดอร์ที่คิดต้นทุนได้ครบในช่วงนี้</p>{% endif %}
+{% endblock %}
