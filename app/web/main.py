@@ -96,7 +96,7 @@ def pricing(request: Request, s: Db):
 
     overrides = {f: v for f, v in (("commission_bp", read("commission", parse_percent_bp)), ("transaction_bp", read("transaction", parse_percent_bp)),
                                    ("service_bp", read("service", parse_percent_bp)), ("fixed_per_order", read("fixed", parse_money)),
-                                   ("ads_bp", read("ads", parse_percent_bp))) if v is not None}
+                                   ("expense_bp", read("expense", parse_percent_bp))) if v is not None}
     req = PricingRequest(base_product=q.get("base", ""), units=max(read("units", int, 1), 1), list_price=read("list_price", parse_money),
                          shop_discount_bp=read("shop_discount", parse_percent_bp, 0), shop_coupon=read("shop_coupon", parse_money, 0),
                          platform_discount_bp=read("platform_discount", parse_percent_bp, 0), affiliate_bp=read("affiliate", parse_percent_bp, 0),

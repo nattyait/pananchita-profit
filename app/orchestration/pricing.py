@@ -11,14 +11,14 @@ from app.domain.pricing import (
     LearnedRates,
     PriceBreakdown,
     PriceScenario,
-    ads_spend,
     learn_fee_rates,
     min_list_price,
     simulate,
 )
 from app.domain.profit import effective_cost
-from app.domain.types import Platform
+from app.domain.types import ExpenseKind, Platform
 from app.effects import db
+from app.orchestration.profit_report import BuildProfitReport
 
 LEARN_DAYS = 60
 COMPARE_DISCOUNTS_BP = (0, 1000, 2000, 3000, 4000, 5000)
@@ -67,7 +67,9 @@ class SimulatePrice:
     def run(self, req: PricingRequest, *, today: date) -> PricingResult:
         start = today - timedelta(days=LEARN_DAYS - 1)
         settlements = [x for x in db.settlements_between(self.s, start, today) if x.platform is Platform.TIKTOK]
-        learned = learn_fee_rates(settlements, ads_spend(db.all_expenses(self.s), Platform.TIKTOK.value, start, today))
+        # expense share exactly as the profit page allocates it (all platforms visible, ADR-0002)
+        pnl = BuildProfitReport(self.s).run(start=start, end=today).by_platform.get(Platform.TIKTOK.value)
+        learned = learn_fee_rates(settlements, pnl.expense_total if pnl else 0, pnl.expenses.get(ExpenseKind.ADS, 0) if pnl else 0)
         rates = replace(learned.rates, **req.rate_overrides)
         unit_cost = effective_cost(db.all_sku_costs(self.s), req.base_product, today) if req.base_product else None
         breakdown = break_even = target = None

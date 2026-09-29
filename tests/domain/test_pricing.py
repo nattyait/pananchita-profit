@@ -8,7 +8,7 @@ from app.domain.pricing import FeeRates, PriceScenario, learn_fee_rates, min_lis
 from app.domain.types import Platform, Settlement
 
 # rates seen on the real TikTok income rows (fixtures_tiktok_real.py)
-REAL = FeeRates(commission_bp=1070, transaction_bp=321, service_bp=803, fixed_per_order=107, ads_bp=0)
+REAL = FeeRates(commission_bp=1070, transaction_bp=321, service_bp=803, fixed_per_order=107, expense_bp=0)
 
 
 def test_simulate_reproduces_a_real_tiktok_order():
@@ -22,7 +22,7 @@ def test_simulate_reproduces_a_real_tiktok_order():
 
 
 def test_profit_after_cogs_affiliate_and_ads():
-    rates = FeeRates(commission_bp=1070, transaction_bp=321, service_bp=803, fixed_per_order=107, ads_bp=1200)
+    rates = FeeRates(commission_bp=1070, transaction_bp=321, service_bp=803, fixed_per_order=107, expense_bp=1200)
     s = PriceScenario(list_price=100000, shop_discount_bp=4000, shop_coupon=0, unit_cost=11000, units=5, affiliate_bp=1000, platform_discount_bp=0)
     b = simulate(s, rates)
     assert b.after_shop_discount == 60000
@@ -31,12 +31,12 @@ def test_profit_after_cogs_affiliate_and_ads():
     assert b.net_received == 60000 - fees
     assert b.cogs == 55000
     assert b.contribution == b.net_received - 55000
-    assert b.ads == (60000 - fees) * 1200 // 10000
-    assert b.profit == b.contribution - b.ads < 0
+    assert b.expense == (60000 - fees) * 1200 // 10000
+    assert b.profit == b.contribution - b.expense < 0
 
 
 def test_min_list_price_is_the_lowest_whole_baht_meeting_the_target():
-    rates = FeeRates(commission_bp=1070, transaction_bp=321, service_bp=803, fixed_per_order=107, ads_bp=1200)
+    rates = FeeRates(commission_bp=1070, transaction_bp=321, service_bp=803, fixed_per_order=107, expense_bp=1200)
     base = dict(shop_discount_bp=4000, shop_coupon=2000, unit_cost=11000, units=5, affiliate_bp=1000, platform_discount_bp=0)
     for target in (0, 5000):
         price = min_list_price(target, rates, **base)
@@ -46,7 +46,7 @@ def test_min_list_price_is_the_lowest_whole_baht_meeting_the_target():
 
 
 def test_min_list_price_is_none_when_deductions_take_everything():
-    rates = FeeRates(commission_bp=5000, transaction_bp=3000, service_bp=2000, fixed_per_order=0, ads_bp=0)
+    rates = FeeRates(commission_bp=5000, transaction_bp=3000, service_bp=2000, fixed_per_order=0, expense_bp=0)
     assert min_list_price(0, rates, shop_discount_bp=0, shop_coupon=0, unit_cost=100, units=1, affiliate_bp=0, platform_discount_bp=0) is None
 
 
@@ -59,13 +59,14 @@ def test_learn_rates_from_real_settlements():
                    platform_fee=-107, affiliate_fee=-5310),
         Settlement(Platform.TIKTOK, "R", d, -86004),  # clawback: no product_price → not a sample
     ]
-    learned = learn_fee_rates(settlements, ads_total=13000)
+    learned = learn_fee_rates(settlements, expense_total=15000, ads_total=13000)
     assert learned.orders == 2
     assert learned.rates.commission_bp == 1070 and learned.rates.transaction_bp == 321
     assert learned.rates.service_bp == round((14948 + 4264) / (121433 + 53100) * 10000)
     assert learned.rates.fixed_per_order == 107
     assert learned.affiliate_bp == 1000 and learned.affiliate_orders == 1  # average among orders that had an affiliate
-    assert learned.rates.ads_bp == round(13000 / (89487 + 41342 - 86004) * 10000)
+    assert learned.rates.expense_bp == round(15000 / (89487 + 41342 - 86004) * 10000)  # ads + other + shared share
+    assert learned.ads_bp == round(13000 / (89487 + 41342 - 86004) * 10000)
 
 
 @pytest.mark.parametrize("text, bp", [("10.7", 1070), ("8.03", 803), ("40", 4000), ("0", 0), (" 12.5 % ", 1250)])

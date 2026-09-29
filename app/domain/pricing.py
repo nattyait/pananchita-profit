@@ -9,12 +9,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from math import ceil
 
-from app.domain.types import Expense, ExpenseKind, Settlement
+from app.domain.types import Settlement
 
 
 @dataclass(frozen=True)
@@ -23,7 +22,7 @@ class FeeRates:
     transaction_bp: int
     service_bp: int  # growth-support + campaign/coupon service fees + shipping the shop pays, as seen on average
     fixed_per_order: int  # satang, e.g. infrastructure fee
-    ads_bp: int  # ads spend as a share of net_received
+    expense_bp: int  # every Expense of the platform (own + its ADR-0002 share of shared) as a share of net_received
 
 
 @dataclass(frozen=True)
@@ -49,7 +48,7 @@ class PriceBreakdown:
     fixed: int
     net_received: int
     cogs: int
-    ads: int
+    expense: int  # share of Expense (ads + other + shared), as on the profit page
 
     @property
     def fees(self) -> int:
@@ -61,7 +60,7 @@ class PriceBreakdown:
 
     @property
     def profit(self) -> int:
-        return self.contribution - self.ads
+        return self.contribution - self.expense
 
     @property
     def shop_discount_total(self) -> int:
@@ -83,16 +82,16 @@ def simulate(s: PriceScenario, rates: FeeRates) -> PriceBreakdown:
     affiliate = _pct(after, s.affiliate_bp)
     net = after - commission - transaction - service - affiliate - rates.fixed_per_order
     return PriceBreakdown(s.list_price, after, after - _pct(after, s.platform_discount_bp), commission, transaction, service, affiliate,
-                          rates.fixed_per_order, net, s.unit_cost * s.units, _pct(net, rates.ads_bp))
+                          rates.fixed_per_order, net, s.unit_cost * s.units, _pct(net, rates.expense_bp))
 
 
 def min_list_price(target_profit: int, rates: FeeRates, **scenario: int) -> int | None:
     """Lowest full price in whole baht whose simulated profit ≥ target_profit; None if deductions ≥ 100 %."""
     pct = rates.commission_bp + rates.transaction_bp + rates.service_bp + scenario["affiliate_bp"]
-    if pct >= 10000 or rates.ads_bp >= 10000 or scenario["shop_discount_bp"] >= 10000:
+    if pct >= 10000 or rates.expense_bp >= 10000 or scenario["shop_discount_bp"] >= 10000:
         return None
     cogs = scenario["unit_cost"] * scenario["units"]
-    net_needed = Fraction(target_profit + cogs) / (1 - Fraction(rates.ads_bp, 10000))
+    net_needed = Fraction(target_profit + cogs) / (1 - Fraction(rates.expense_bp, 10000))
     after_needed = (net_needed + rates.fixed_per_order) / (1 - Fraction(pct, 10000))
     price = ceil((after_needed + scenario["shop_coupon"]) / (1 - Fraction(scenario["shop_discount_bp"], 10000)) / 100) * 100
     price = max(price - 200, 0)  # step up from just below to absorb per-fee rounding
@@ -107,10 +106,17 @@ class LearnedRates:
     orders: int  # settlements used as samples
     affiliate_bp: int  # average commission among orders that paid an affiliate
     affiliate_orders: int
+    ads_bp: int  # the ads part of expense_bp, shown for information
+
+    @property
+    def other_expense_bp(self) -> int:
+        """expense_bp minus its ads part: other platform Expense + the share of shared Expense."""
+        return self.rates.expense_bp - self.ads_bp
 
 
-def learn_fee_rates(settlements: Iterable[Settlement], ads_total: int) -> LearnedRates:
-    """Average rates from real Settlements (fees are negative in the report) as a share of product_price."""
+def learn_fee_rates(settlements: Iterable[Settlement], expense_total: int, ads_total: int = 0) -> LearnedRates:
+    """Average rates from real Settlements (fees are negative in the report) as a share of product_price.
+    expense_total / ads_total: the platform's Expense in the same window as the profit page allocates it (ADR-0002)."""
     ss = list(settlements)
     sample = [s for s in ss if s.product_price > 0]
     base = sum(s.product_price for s in sample)
@@ -125,11 +131,8 @@ def learn_fee_rates(settlements: Iterable[Settlement], ads_total: int) -> Learne
         transaction_bp=rate(sum(s.transaction_fee for s in sample), base),
         service_bp=rate(sum(s.service_fee + s.shipping_fee_diff for s in sample), base),
         fixed_per_order=max(0, round(-sum(s.platform_fee for s in sample) / len(sample))) if sample else 0,
-        ads_bp=max(0, round(ads_total / net_all * 10000)) if net_all > 0 else 0,
+        expense_bp=max(0, round(expense_total / net_all * 10000)) if net_all > 0 else 0,
     )
-    return LearnedRates(rates, len(sample), rate(sum(s.affiliate_fee for s in with_aff), sum(s.product_price for s in with_aff)), len(with_aff))
+    return LearnedRates(rates, len(sample), rate(sum(s.affiliate_fee for s in with_aff), sum(s.product_price for s in with_aff)), len(with_aff),
+                        max(0, round(ads_total / net_all * 10000)) if net_all > 0 else 0)
 
-
-def ads_spend(expenses: Iterable[Expense], platform: str, start: date, end: date) -> int:
-    """Σ ads Expense of one platform with incurred_on in [start, end] (satang)."""
-    return sum(e.amount for e in expenses if e.kind is ExpenseKind.ADS and e.platform == platform and start <= e.incurred_on <= end)

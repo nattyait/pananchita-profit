@@ -28,11 +28,11 @@ TikTok คิดค่าธรรมเนียมจาก <b>ราคาห
     <label>ค่าธรรมเนียมคำสั่งซื้อ (%) <input name="transaction" inputmode="decimal" value="{{ q.get('transaction') or r.rates.transaction_bp|percent }}" style="min-width:6rem"></label>
     <label>ค่าบริการอื่น ๆ เฉลี่ย (%) <input name="service" inputmode="decimal" value="{{ q.get('service') or r.rates.service_bp|percent }}" style="min-width:6rem"></label>
     <label>ค่าคงที่ต่อออเดอร์ (บาท) <input name="fixed" inputmode="decimal" value="{{ q.get('fixed') or r.rates.fixed_per_order|baht }}" style="min-width:6rem"></label>
-    <label>ค่าแอด (% ของยอดรับ) <input name="ads" inputmode="decimal" value="{{ q.get('ads') or r.rates.ads_bp|percent }}" style="min-width:6rem"></label>
+    <label>ส่วนแบ่งค่าใช้จ่าย (% ของยอดรับ) <input name="expense" inputmode="decimal" value="{{ q.get('expense') or r.rates.expense_bp|percent }}" style="min-width:6rem"></label>
   </div>
   <p class="hint">ค่าบริการอื่น ๆ รวมค่าสนับสนุนการเติบโตของร้านค้า (ราว 8.03%) ค่าบริการคูปอง/แคมเปญที่เคยโดนเฉลี่ย และค่าส่งที่ร้านจ่าย ถ้าจะเข้าแคมเปญคูปอง (เช่น คูปองไลฟ์คุ้มราว 4.28%) ที่ปกติไม่ได้เข้า ให้บวกเพิ่มในช่องนี้
   {% if r.learned.affiliate_orders %}· ออเดอร์ที่มี affiliate {{ r.learned.affiliate_orders }} ออเดอร์ จ่ายค่าคอมเฉลี่ย {{ r.learned.affiliate_bp|percent }}%{% endif %}
-  · ค่าแอด = ค่าแอด TikTok ÷ ยอดรับจริง TikTok ในช่วงเดียวกัน</p>
+  · ส่วนแบ่งค่าใช้จ่าย = ค่าใช้จ่ายทั้งหมดของ TikTok ในช่วงเดียวกัน (ค่าแอด {{ r.learned.ads_bp|percent }}% + อื่น ๆ/ส่วนกลาง {{ r.learned.other_expense_bp|percent }}%) ÷ ยอดรับจริง TikTok แบ่งแบบเดียวกับหน้ากำไร</p>
 </details>
 <p><button type="submit">คำนวณ</button></p>
 </form>
@@ -52,7 +52,7 @@ TikTok คิดค่าธรรมเนียมจาก <b>ราคาห
     <tr><td>ไม่ขาดทุน</td>{% if r.break_even %}<td class="n">{{ r.break_even.list_price|baht }}</td><td class="n">{{ r.break_even.net_received|baht }}</td><td class="n">{{ r.break_even.profit|baht }}</td>{% else %}<td class="n" colspan="3">ตั้งราคาไม่ได้</td>{% endif %}</tr>
     <tr class="total"><td>ได้กำไรตะกร้าละ {{ req.target_profit|baht }}</td>{% if r.target %}<td class="n">{{ r.target.list_price|baht }}</td><td class="n">{{ r.target.net_received|baht }}</td><td class="n">{{ r.target.profit|baht }}</td>{% else %}<td class="n" colspan="3">ตั้งราคาไม่ได้</td>{% endif %}</tr>
   </table>
-  <p class="hint">ยอดรับจริง = เงินที่ TikTok โอนให้ร้านต่อตะกร้า หลังหักส่วนลด/คูปองของร้าน ค่าธรรมเนียม และ affiliate (ก่อนหักต้นทุนและค่าแอด)</p>
+  <p class="hint">ยอดรับจริง = เงินที่ TikTok โอนให้ร้านต่อตะกร้า หลังหักส่วนลด/คูปองของร้าน ค่าธรรมเนียม และ affiliate (ก่อนหักต้นทุนและส่วนแบ่งค่าใช้จ่าย)</p>
   {% if r.break_even is none %}<p class="warn">ส่วนลดและค่าธรรมเนียมรวมกันถึง 100% — ตั้งราคาเท่าไหร่ก็ขาดทุน</p>{% endif %}
 </section>
 
@@ -72,7 +72,7 @@ TikTok คิดค่าธรรมเนียมจาก <b>ราคาห
     <tr class="total"><td>ยอดรับจริง (เงินที่ TikTok โอนให้)</td><td class="n">{{ b.net_received|baht }}</td></tr>
     <tr class="sub"><td>หัก ต้นทุนสินค้า</td><td class="n">−{{ b.cogs|baht }}</td></tr>
     <tr><td>กำไรก่อนหักค่าใช้จ่าย</td><td class="n">{{ b.contribution|baht }}</td></tr>
-    <tr class="sub"><td>หัก ค่าแอดเฉลี่ย</td><td class="n">−{{ b.ads|baht }}</td></tr>
+    <tr class="sub"><td>หัก ส่วนแบ่งค่าใช้จ่าย (ค่าแอด + อื่น ๆ + ส่วนกลาง)</td><td class="n">−{{ b.expense|baht }}</td></tr>
     <tr class="total {% if b.profit < 0 %}loss{% endif %}"><td>{% if b.profit < 0 %}ขาดทุนสุทธิ{% else %}กำไรสุทธิ{% endif %} ต่อตะกร้า ({{ b.margin_bp|percent }}% ของราคาเต็ม)</td><td class="n">{{ b.profit|baht }}</td></tr>
   </table>
 </section>
@@ -87,7 +87,7 @@ TikTok คิดค่าธรรมเนียมจาก <b>ราคาห
   <tr><td class="n">{{ c.shop_discount_bp|percent }}%</td>
     <td class="n">{{ c.break_even.list_price|baht if c.break_even else '—' }}</td><td class="n">{{ c.break_even.net_received|baht if c.break_even else '—' }}</td>
     <td class="n">{{ c.target.list_price|baht if c.target else '—' }}</td><td class="n">{{ c.target.net_received|baht if c.target else '—' }}</td>
-    <td class="actions">{% if c.target %}<a href="/pricing?base={{ req.base_product|urlencode }}&units={{ req.units }}&list_price={{ c.target.list_price|baht|replace(',', '') }}&shop_discount={{ c.shop_discount_bp|percent }}&shop_coupon={{ req.shop_coupon|baht|replace(',', '') }}&platform_discount={{ req.platform_discount_bp|percent }}&affiliate={{ req.affiliate_bp|percent }}&target={{ req.target_profit|baht|replace(',', '') }}{% for k in ('commission', 'transaction', 'service', 'fixed', 'ads') %}{% if q.get(k) %}&{{ k }}={{ q.get(k)|urlencode }}{% endif %}{% endfor %}">ดูรายละเอียด</a>{% endif %}</td></tr>
+    <td class="actions">{% if c.target %}<a href="/pricing?base={{ req.base_product|urlencode }}&units={{ req.units }}&list_price={{ c.target.list_price|baht|replace(',', '') }}&shop_discount={{ c.shop_discount_bp|percent }}&shop_coupon={{ req.shop_coupon|baht|replace(',', '') }}&platform_discount={{ req.platform_discount_bp|percent }}&affiliate={{ req.affiliate_bp|percent }}&target={{ req.target_profit|baht|replace(',', '') }}{% for k in ('commission', 'transaction', 'service', 'fixed', 'expense') %}{% if q.get(k) %}&{{ k }}={{ q.get(k)|urlencode }}{% endif %}{% endfor %}">ดูรายละเอียด</a>{% endif %}</td></tr>
   {% endfor %}
 </table>
 {% endif %}
