@@ -16,13 +16,15 @@ infrastructure fee 1.07 baht per order, LIVE coupon service fee 4.28 % when join
 ## Decision
 1. New page `/pricing` ("ตั้งราคา TikTok"). A **PriceSimulation** is pure (`domain/pricing.py`):
    `after = full − full × shop% − shop coupon`; each fee = rate × after; `net_received = after − fees − fixed`;
-   `COGS = units × SkuCost of the BaseProduct today`; `ads = ads% × net_received`; `profit = net_received − COGS − ads`.
+   `COGS = units × SkuCost of the BaseProduct today`; `expense = expense% × net_received`; `profit = net_received − COGS − expense`.
 2. `min_list_price(target)` returns the lowest whole-baht full price whose simulated profit ≥ target (solved exactly
    with fractions, then checked with the same rounding as `simulate`); None when deductions reach 100 %.
 3. **FeeRates are learned, editable**: averages over TikTok Settlements of the last 60 days with product_price > 0
    (`learn_fee_rates`): commission, order fee, "other service" (= service_fee + shipping the shop paid: growth support
-   + coupon/campaign service fees on average), fixed = average platform_fee per order, ads = TikTok ads Expense ÷
-   TikTok net_received in the window. Affiliate % is an input (default 0); the observed average among orders that
+   + coupon/campaign service fees on average), fixed = average platform_fee per order, expense% = TikTok's total
+   Expense in the window (own ads + other + its share of shared Expense) ÷ TikTok net_received, taken from
+   `BuildProfitReport` over the same window so it follows ADR-0002 exactly (amended 2026-09-29; first version used
+   ads only). The ads part is shown separately for information. Affiliate % is an input (default 0); the observed average among orders that
    paid an affiliate is shown as a hint. Any rate can be overridden on the page for the current simulation only.
 4. A simulation is never stored and never feeds ProfitReport; the cash-basis Trust Invariants are untouched.
 
