@@ -166,10 +166,12 @@ def cogs_for(lines: tuple[OrderLine, ...], costs: tuple[SkuCost, ...], maps: dic
 
 def split_order_lines(lines: tuple[OrderLine, ...], net_received: int, allocated_expense: int, costs: tuple[SkuCost, ...],
                       maps: dict[str, ListingMap] | None = None) -> tuple[OrderLineProfit, ...]:
-    """ADR-0004: weights = line_amount, else quantity. Shares sum exactly to the order figures."""
+    """ADR-0004: weights = line_amount, else quantity, else equal (e.g. fully returned lines). Shares sum exactly to the order figures."""
     weights = {i: ln.line_amount for i, ln in enumerate(lines)}
     if not any(w > 0 for w in weights.values()):
         weights = {i: ln.quantity for i, ln in enumerate(lines)}
+    if not any(w > 0 for w in weights.values()):
+        weights = {i: 1 for i, _ in enumerate(lines)}
     net_share = split_proportionally(net_received, weights)
     exp_share = split_proportionally(allocated_expense, weights)
     out = []
